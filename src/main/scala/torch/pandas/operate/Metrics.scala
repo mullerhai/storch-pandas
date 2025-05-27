@@ -20,6 +20,10 @@ package torch.pandas.operate
 import java.io.File
 import java.lang.annotation.Annotation
 import java.lang.reflect.Constructor
+
+import scala.collection.mutable.*
+import scala.collection.mutable.LinkedHashMap
+
 import org.aspectj.lang.ProceedingJoinPoint
 import org.aspectj.lang.Signature
 import org.aspectj.lang.annotation.Around
@@ -27,31 +31,43 @@ import org.aspectj.lang.annotation.Aspect
 import org.aspectj.lang.reflect.ConstructorSignature
 import org.aspectj.lang.reflect.FieldSignature
 import org.aspectj.lang.reflect.MethodSignature
+
 import com.codahale.metrics.ConsoleReporter
 import com.codahale.metrics.CsvReporter
 import com.codahale.metrics.MetricRegistry
 import com.codahale.metrics.SharedMetricRegistries
 import com.codahale.metrics.Timer
-import com.codahale.metrics.annotation.Timed
-import scala.collection.mutable.{LinkedHashMap,*}
 import com.codahale.metrics._
+import com.codahale.metrics.annotation.Timed
 
-
-@Aspect 
+@Aspect
 object Metrics {
   private val registry = SharedMetricRegistries.getOrCreate("storch")
 
-  private def getAnnotation(signature: Signature, annotationClass: Class[_ <: Annotation]): Annotation = {
+  private def getAnnotation(
+      signature: Signature,
+      annotationClass: Class[? <: Annotation],
+  ): Annotation = {
     if (signature.isInstanceOf[ConstructorSignature]) {
       val ctor = classOf[ConstructorSignature].cast(signature).getConstructor
       return ctor.getAnnotation(annotationClass)
-    }
-    else if (signature.isInstanceOf[MethodSignature]) return classOf[MethodSignature].cast(signature).getMethod.getAnnotation(annotationClass)
-    else if (signature.isInstanceOf[FieldSignature]) return classOf[FieldSignature].cast(signature).getField.getAnnotation(annotationClass)
-    throw new RuntimeException("Unsupported signature type " + signature.getClass.getName)
+    } else if (signature.isInstanceOf[MethodSignature])
+      return classOf[MethodSignature].cast(signature).getMethod
+        .getAnnotation(annotationClass)
+    else if (signature.isInstanceOf[FieldSignature])
+      return classOf[FieldSignature].cast(signature).getField
+        .getAnnotation(annotationClass)
+    throw new RuntimeException(
+      "Unsupported signature type " + signature.getClass.getName,
+    )
   }
 
-  private def name(signature: Signature, name: String, suffix: String, absolute: Boolean): String = {
+  private def name(
+      signature: Signature,
+      name: String,
+      suffix: String,
+      absolute: Boolean,
+  ): String = {
     var sig = signature.toString
     // trim return type
     val index = sig.indexOf(" ")
@@ -67,7 +83,8 @@ object Metrics {
   }
 }
 
-@Aspect class Metrics {
+@Aspect
+class Metrics {
   @Around("execution(@com.codahale.metrics.annotation.Timed * *(..))")
   @throws[Throwable]
   def injectTimer(point: ProceedingJoinPoint): AnyRef = {

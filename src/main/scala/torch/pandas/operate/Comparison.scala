@@ -17,50 +17,46 @@
  */
 package torch.pandas.operate
 
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.LinkedHashSet
+import scala.collection.mutable.ListBuffer
+
 import torch.DataFrame
-import scala.collection.mutable.{LinkedHashMap,LinkedHashSet,ListBuffer}
 
 object Comparison {
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] = {
     // algorithm
     // 1. determine union of rows and columns
-    val rows = new LinkedHashSet[AnyRef]
-    rows.addAll(df1.index)
-    rows.addAll(df2.index)
-    val cols = new LinkedHashSet[AnyRef]
-    cols.addAll(df1.columns)
-    cols.addAll(df2.columns)
+    val rows = new LinkedHashSet[Any]()
+    rows.addAll(df1.getIndex)
+    rows.addAll(df2.getIndex)
+    val cols = new LinkedHashSet[Any]()
+    cols.addAll(df1.getColumns)
+    cols.addAll(df2.getColumns)
     // 2. reshape left to contain all rows and columns
-    val left = df1.reshape(rows, cols)
+    val left = df1.reshape(rows.toSeq, cols.toSeq)
     // 3. reshape right to contain all rows and columns
-    val right = df2.reshape(rows, cols)
+    val right = df2.reshape(rows.toSeq, cols.toSeq)
     val comp = new DataFrame[String](rows, cols)
     // 4. perform comparison cell by cell
-    for (c <- 0 until left.size) {
-      for (r <- 0 until left.length) {
-        val lval = left.get(r, c)
-        val rval = right.get(r, c)
-        if (lval == null && rval == null) {
-          // equal but null
-          comp.set(r, c, "")
-        }
-        else if (lval != null && lval == rval) {
-          // equal
-          comp.set(r, c, String.valueOf(lval))
-        }
-        else if (lval == null) {
-          // missing from left
-          comp.set(r, c, String.valueOf(rval)) // + " (added from right)");
-        }
-        else if (rval == null) {
-          // missing from right
-          comp.set(r, c, String.valueOf(lval)) // + " (added from left)");
-        }
-        else {
-          // not equal
-          comp.set(r, c, String.format("%s | %s", lval, rval))
-        }
-      }
+    for (c <- 0 until left.size) for (r <- 0 until left.length) {
+      val lval = left.get(r, c)
+      val rval = right.get(r, c)
+      if (lval == null && rval == null)
+        // equal but null
+        comp.set(r, c, "")
+      else if (lval != null && lval == rval)
+        // equal
+        comp.set(r, c, String.valueOf(lval))
+      else if (lval == null)
+        // missing from left
+        comp.set(r, c, String.valueOf(rval)) // + " (added from right)");
+      else if (rval == null)
+        // missing from right
+        comp.set(r, c, String.valueOf(lval)) // + " (added from left)");
+      else
+        // not equal
+        comp.set(r, c, String.format("%s | %s", lval, rval))
     }
     comp
   }

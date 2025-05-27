@@ -18,12 +18,18 @@
 package torch.pandas.operate
 
 import java.util
+
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
 import torch.DataFrame
 import torch.DataFrame.Predicate
-import scala.collection.mutable.{LinkedHashMap,ListBuffer}
 
 object Selection {
-  def select[V](df: DataFrame[V], predicate: DataFrame.Predicate[V]): SparseBitSet = {
+  def select[V](
+      df: DataFrame[V],
+      predicate: DataFrame.Predicate[V],
+  ): SparseBitSet = {
     val selected = new SparseBitSet
     val rows = df.iterator
     var r = 0
@@ -35,7 +41,8 @@ object Selection {
   }
 
   def select(index: Index, selected: SparseBitSet): Index = {
-    val names = new  ListBuffer[AnyRef]() //index.names)
+    val names = new ListBuffer[Any]() // index.names)
+    index.names.foreach(ee => names.append(ee))
     val newidx = new Index
     var r = selected.nextSetBit(0)
     while (r >= 0) {
@@ -46,10 +53,14 @@ object Selection {
     newidx
   }
 
-  def select[V](blocks: BlockManager[V], selected: SparseBitSet): BlockManager[V] = {
-    val data = new ListBuffer[Seq[V]]
+  def select[V](
+      blocks: BlockManager[V],
+      selected: SparseBitSet,
+  ): BlockManager[V] = {
+    val data = new ListBuffer[Seq[Any]]
     for (c <- 0 until blocks.size()) {
-      val column = new ListBuffer[V]()//selected.cardinality)
+      val column = new ListBuffer[Any]() // selected.cardinality)
+//      selected.getCardinality
       var r = selected.nextSetBit(0)
       while (r >= 0) {
         column.append(blocks.get(c, r))
@@ -60,11 +71,15 @@ object Selection {
     new BlockManager[V](data.toSeq)
   }
 
-  def select[V](blocks: BlockManager[V], rows: SparseBitSet, cols: SparseBitSet): BlockManager[V] = {
-    val data = new ListBuffer[ Seq[V]]
+  def select[V](
+      blocks: BlockManager[V],
+      rows: SparseBitSet,
+      cols: SparseBitSet,
+  ): BlockManager[V] = {
+    val data = new ListBuffer[Seq[Any]]
     var c = cols.nextSetBit(0)
     while (c >= 0) {
-      val column = new ListBuffer[V]()//rows.cardinality)
+      val column = new ListBuffer[Any]() // rows.cardinality)
       var r = rows.nextSetBit(0)
       while (r >= 0) {
         column.append(blocks.get(c, r))
@@ -76,7 +91,13 @@ object Selection {
     new BlockManager[V](data.toSeq)
   }
 
-  def slice[V](df: DataFrame[V], rowStart: Int, rowEnd: Int, colStart: Int, colEnd: Int): Array[SparseBitSet] = {
+  def slice[V](
+      df: DataFrame[V],
+      rowStart: Int,
+      rowEnd: Int,
+      colStart: Int,
+      colEnd: Int,
+  ): Array[SparseBitSet] = {
     val rows = new SparseBitSet
     val cols = new SparseBitSet
     rows.set(rowStart, rowEnd)
@@ -85,11 +106,9 @@ object Selection {
   }
 
   class DropNaPredicate[V] extends DataFrame.Predicate[V] {
-    override def apply(values:  Seq[V]): Boolean = {
+    override def apply(values: Seq[V]): Boolean = {
 
-      for (value <- values) {
-        if (value == null) return false
-      }
+      for (value <- values) if (value == null) return false
       true
     }
   }

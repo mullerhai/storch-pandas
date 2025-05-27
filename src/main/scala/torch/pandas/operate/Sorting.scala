@@ -18,29 +18,33 @@
 package torch.pandas.operate
 
 import java.util.Comparator
+
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable
+
 import torch.DataFrame
 import torch.DataFrame.SortDirection
-
-import scala.collection.mutable.{LinkedHashMap, ListBuffer, *}
-import scala.util.control.Breaks.{breakable,break}
 object Sorting {
-  def sort[V](df: DataFrame[V], cols: LinkedHashMap[Int, DataFrame.SortDirection]): DataFrame[V] = {
-    val comparator = new Comparator[ Seq[V]]() {
-      @SuppressWarnings(Array("unchecked")) override def compare(r1:  Seq[V], r2:  Seq[V]): Int = {
+  def sort[V](
+      df: DataFrame[V],
+      cols: LinkedHashMap[Int, DataFrame.SortDirection],
+  ): DataFrame[V] = {
+    val comparator = new Comparator[Seq[V]]() {
+      @SuppressWarnings(Array("unchecked"))
+      override def compare(r1: Seq[V], r2: Seq[V]): Int = {
         var result = 0
 
-        breakable{
-          for (col <- cols) {
-            val c = col._1
-            val v1 = classOf[Comparable[?]].cast(r1(c))
-            val v2 = r2(c)
-            result = v1.compareTo(v2)
-            result *=
-            if (col._2 eq SortDirection.DESCENDING) -1
-            else 1
-            if (result != 0) break //todo: break is not supported
-          }
-        }
+        breakable(for (col <- cols) {
+          val c = col._1
+          val v1 = classOf[Comparable[V]].cast(r1(c))
+          val v2 = r2(c)
+          result = v1.compareTo(v2)
+          val resultTmp = if (col._2 eq SortDirection.DESCENDING) -1 else 1
+          result *= resultTmp
+          if (result != 0) break // todo: break is not supported
+        })
 
         result
       }
@@ -48,20 +52,24 @@ object Sorting {
     sort(df, comparator)
   }
 
-  def sort[V](df: DataFrame[V], comparator: Comparator[ Seq[V]]): DataFrame[V] = {
-    val sorted = new DataFrame[V](df.columns)
-    val cmp = new Comparator[Int]() {
-      override def compare(r1: Int, r2: Int): Int = comparator.compare(df.row(r1), df.row(r2))
+  def sort[V](
+      df: DataFrame[V],
+      comparator: Comparator[Seq[V]],
+  ): DataFrame[V] = {
+    val sorted = new DataFrame[V](df.getColumns)
+    val cmp = new Comparator[AnyRef]() {
+      override def compare(r1: AnyRef, r2: AnyRef): Int = comparator
+        .compare(df.row(r1), df.row(r2))
     }
-    val rows = new Array[Int](df.length)
-    for (r <- 0 until df.length) {
-      rows(r) = r
-    }
+    val rows = new Array[AnyRef](df.length)
+    for (r <- 0 until df.length) rows(r) = r.asInstanceOf[AnyRef]
+
     java.util.Arrays.sort(rows, cmp)
-    val labels = new  ListBuffer[AnyRef](df.index)
+    val labels = new ListBuffer[AnyRef]() // df.getIndex)
     for (r <- rows) {
-      val label = if (r < labels.size) labels.get(r)
-      else r
+      val label =
+        if (r.asInstanceOf[Int] < labels.size) labels(r.asInstanceOf[Int])
+        else r
       sorted.append(label, df.row(r))
     }
     sorted

@@ -17,18 +17,18 @@
  */
 package torch.pandas.operate
 
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
 import torch.DataFrame
 
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
-
 object Inspection {
-  def types(df: DataFrame[?]):  Seq[Class[?]] = {
-    val types = new  ListBuffer[Class[?]]()
+  def types(df: DataFrame[?]): Seq[Class[?]] = {
+    val types = new ListBuffer[Class[?]]()
     var c = 0
     while (c < df.size && 0 < df.length) {
       val value = df.get(0, c)
-      types.append(if (value != null) value.getClass
-      else classOf[AnyRef])
+      types.append(if (value != null) value.getClass else classOf[AnyRef])
       c += 1
     }
     types.toSeq
@@ -37,9 +37,8 @@ object Inspection {
   def numeric(df: DataFrame[?]): SparseBitSet = {
     val numeric = new SparseBitSet
     val typeSeq = types(df)
-    for (c <- 0 until typeSeq.size) {
+    for (c <- 0 until typeSeq.size)
       if (classOf[Number].isAssignableFrom(typeSeq(c))) numeric.set(c)
-    }
     numeric
   }
 

@@ -17,28 +17,32 @@
  */
 package torch.pandas.operate
 
+import scala.collection.Set as KeySet
+//import torch.pandas.operate.Transforms.CumulativeFunction
+import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
 import torch.DataFrame
 import torch.DataFrame.Aggregate
 import torch.DataFrame.Function
 import torch.DataFrame.KeyFunction
-//import torch.pandas.operate.Transforms.CumulativeFunction
-import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
-class Grouping[V] private(
-                           private val groups: mutable.LinkedHashMap[Any, SparseBitSet] = mutable.LinkedHashMap.empty,
-                           private val columns: mutable.LinkedHashSet[Int] = mutable.LinkedHashSet.empty
-                         ) extends Iterable[(Any, SparseBitSet)] {
+class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
 
-  def this() =()
+//  def this() ={ }
 
+  private val groups: mutable.LinkedHashMap[Any, SparseBitSet] =
+    mutable.LinkedHashMap.empty
+
+  private val columns: mutable.LinkedHashSet[Int] = mutable.LinkedHashSet.empty
   def this(df: DataFrame[V], function: KeyFunction[V], cols: Int*) = {
     this()
-    val iter = df.iterator().asScala
+    val iter = df.iterator
     var r = 0
     while (iter.hasNext) {
       val row = iter.next()
-      val key = function.apply(row.asScala.toList)
+      val key = function.apply(row.toList)
       val group = groups.getOrElseUpdate(key, new SparseBitSet())
       group.set(r)
       r += 1
@@ -46,41 +50,48 @@ class Grouping[V] private(
     cols.foreach(columns.add)
   }
 
-  def this(df: DataFrame[V], cols: Int*) = {
-    this(
-      df,
-      if (cols.length == 1) {
-        new KeyFunction[V] {
-          override def apply(value: java.util.List[V]): Any = value.get(cols(0))
-        }
-      } else {
-        new KeyFunction[V] {
-          override def apply(value: java.util.List[V]): Any = {
-            val keyList = new mutable.ListBuffer[Any]()
-            cols.foreach(c => keyList.addOne(value.get(c)))
-            keyList.toList
-          }
-        }
-      },
-      cols: _*
-    )
-  }
+  def this(df: DataFrame[V], cols: Int*) = this(
+    df,
+    if (cols.length == 1) new KeyFunction[V] {
+
+//          override def apply(value: Seq[V]): AnyRef = value(cols(0))
+
+//          override def apply(value: java.util.List[V]): Any = value.get(cols(0))
+
+      override def apply(value: Seq[V]): AnyRef = value(cols(0))
+        .asInstanceOf[AnyRef]
+    }
+    else new KeyFunction[V] {
+
+//          override def apply(value: java.util.List[V]): Any = {
+//            val keyList = new mutable.ListBuffer[Any]()
+//            cols.foreach(c => keyList.addOne(value.get(c)))
+//            keyList.toList
+//          }
+
+      override def apply(value: Seq[V]): AnyRef = {
+        val keyList = new mutable.ListBuffer[Any]()
+        cols.foreach(c => keyList.addOne(value(c)))
+        keyList.toList
+      }
+    },
+    cols*,
+  )
 
   def apply(df: DataFrame[V], function: Function[?, ?]): DataFrame[V] = {
     if (df.isEmpty) return df
 
     val grouped = mutable.ListBuffer[mutable.ListBuffer[V]]()
-    val names = df.columns.toList
+    val names = df.getColumns.toList
     val newcols = mutable.ListBuffer[Any]()
     val index = mutable.ListBuffer[Any]()
 
     // construct new row index
-    if (function.isInstanceOf[Aggregate[?, ?]] && groups.nonEmpty) {
-      index.addAll(groups.keys)
-    }
+    if (function.isInstanceOf[Aggregate[?, ?]] && groups.nonEmpty) index
+      .addAll(groups.keys)
 
     // add key columns
-    columns.foreach { c =>
+    columns.foreach(c =>
       if (function.isInstanceOf[Aggregate[?, ?]] && groups.nonEmpty) {
         val column = mutable.ListBuffer[V]()
         groups.foreach { case (_, rows) =>
@@ -90,73 +101,72 @@ class Grouping[V] private(
         grouped.addOne(column)
         newcols.addOne(names(c))
       } else {
-        grouped.addOne(df.col(c).asScala.to(mutable.ListBuffer))
+        grouped.addOne(df.col(c).to(mutable.ListBuffer))
+        newcols.addOne(names(c))
+      },
+    )
+
+    // add aggregated data columns
+    for (c <- 0 until df.size) if (!columns.contains(c)) {
+      val column = mutable.ListBuffer[V]()
+      if (groups.isEmpty) {
+        try
+          if (function.isInstanceOf[Aggregate[?, ?]]) column.addOne(
+            function.asInstanceOf[Aggregate[V, V]].apply(df.col(c).toList)
+              .asInstanceOf[V],
+          )
+          else for (r <- 0 until df.length) column.addOne(
+            function.asInstanceOf[Function[V, V]].apply(df.get(r, c))
+              .asInstanceOf[V],
+          )
+        catch { case _: ClassCastException => () }
+
+        if (function.isInstanceOf[CumulativeFunction[?, ?]]) function
+          .asInstanceOf[CumulativeFunction[V, V]].reset()
+      } else groups.foreach { case (_, rows) =>
+        try
+          if (function.isInstanceOf[Aggregate[?, ?]]) {
+            val values = mutable.ListBuffer[V]()
+            var r = rows.nextSetBit(0)
+            while (r >= 0) {
+              values.addOne(df.get(r, c))
+              r = rows.nextSetBit(r + 1)
+            }
+            column.addOne(
+              function.asInstanceOf[Aggregate[V, V]].apply(values.toList)
+                .asInstanceOf[V],
+            )
+          } else {
+            var r = rows.nextSetBit(0)
+            while (r >= 0) {
+              column.addOne(
+                function.asInstanceOf[Function[V, V]].apply(df.get(r, c))
+                  .asInstanceOf[V],
+              )
+              r = rows.nextSetBit(r + 1)
+            }
+          }
+        catch { case _: ClassCastException => () }
+
+        if (function.isInstanceOf[CumulativeFunction[?, ?]]) function
+          .asInstanceOf[CumulativeFunction[V, V]].reset()
+      }
+
+      if (column.nonEmpty) {
+        grouped.addOne(column)
         newcols.addOne(names(c))
       }
     }
 
-    // add aggregated data columns
-    for (c <- 0 until df.size) {
-      if (!columns.contains(c)) {
-        val column = mutable.ListBuffer[V]()
-        if (groups.isEmpty) {
-          try {
-            if (function.isInstanceOf[Aggregate[?, ?]]) {
-              column.addOne(function.asInstanceOf[Aggregate[V, V]].apply(df.col(c).asScala.toList).asInstanceOf[V])
-            } else {
-              for (r <- 0 until df.length) {
-                column.addOne(function.asInstanceOf[Function[V, V]].apply(df.get(r, c)).asInstanceOf[V])
-              }
-            }
-          } catch {
-            case _: ClassCastException => ()
-          }
+    if (newcols.size <= columns.size) throw new IllegalArgumentException(
+      s"no results for aggregate function ${function.getClass.getSimpleName}",
+    )
 
-          if (function.isInstanceOf[CumulativeFunction[?, ?]]) {
-            function.asInstanceOf[CumulativeFunction[V, V]].reset()
-          }
-        } else {
-          groups.foreach { case (_, rows) =>
-            try {
-              if (function.isInstanceOf[Aggregate[?, ?]]) {
-                val values = mutable.ListBuffer[V]()
-                var r = rows.nextSetBit(0)
-                while (r >= 0) {
-                  values.addOne(df.get(r, c))
-                  r = rows.nextSetBit(r + 1)
-                }
-                column.addOne(function.asInstanceOf[Aggregate[V, V]].apply(values.toList).asInstanceOf[V])
-              } else {
-                var r = rows.nextSetBit(0)
-                while (r >= 0) {
-                  column.addOne(function.asInstanceOf[Function[V, V]].apply(df.get(r, c)).asInstanceOf[V])
-                  r = rows.nextSetBit(r + 1)
-                }
-              }
-            } catch {
-              case _: ClassCastException => ()
-            }
-
-            if (function.isInstanceOf[CumulativeFunction[?, ?]]) {
-              function.asInstanceOf[CumulativeFunction[V, V]].reset()
-            }
-          }
-        }
-
-        if (column.nonEmpty) {
-          grouped.addOne(column)
-          newcols.addOne(names(c))
-        }
-      }
-    }
-
-    if (newcols.size <= columns.size) {
-      throw new IllegalArgumentException(
-        s"no results for aggregate function ${function.getClass.getSimpleName}"
-      )
-    }
-
-    new DataFrame[V](index, newcols, grouped)
+    new DataFrame[V](
+      index.asInstanceOf[KeySet[Any]],
+      newcols.asInstanceOf[mutable.Set[Any]],
+      grouped.map(_.toSeq).toList,
+    )
   }
 
   def keys(): Set[Any] = groups.keySet.toSet

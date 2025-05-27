@@ -17,41 +17,49 @@
  */
 package torch.pandas.operate
 
+import scala.collection.Set as KeySet
+import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
+
 import torch.DataFrame
 import torch.DataFrame.RowFunction
-
-import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
-
 object Index {
 
   def reindex[V](df: DataFrame[V], cols: Int*): DataFrame[V] = {
     val transformed = df.transform {
-      if (cols.length == 1) {
-        new RowFunction[V, Any] {
-          override def apply(values: List[V]): List[List[Any]] = {
-            List(List(values(cols.head)))
-          }
+      if (cols.length == 1) new RowFunction[V, Any] {
+
+        def apply(values: List[V]): List[List[Any]] = List(List(values(cols.head)))
+
+        override def apply(values: Seq[V]): Seq[Seq[Any]] =
+          Seq(Seq(values(cols.head)))
+      }
+      else new RowFunction[V, Any] {
+
+        def apply(values: List[V]): List[List[Any]] = {
+          val key = mutable.ListBuffer[Any]()
+          for (c <- cols) key.addOne(values(c))
+          List(List(key.toList))
         }
-      } else {
-        new RowFunction[V, Any] {
-          override def apply(values: List[V]): List[List[Any]] = {
-            val key = mutable.ListBuffer[Any]()
-            for (c <- cols) {
-              key.addOne(values(c))
-            }
-            List(List(key.toList))
-          }
+
+        override def apply(values: Seq[V]): Seq[Seq[Any]] = {
+          val key = mutable.ListBuffer[Any]()
+          for (c <- cols) key.addOne(values(c))
+          List(List(key.toList))
         }
       }
     }
+    val viewData = new Views.ListView[V](df, false).asScala
+      .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
-      transformed.col(0),
-      df.columns,
-      new Views.ListView[V](df, false)
+      transformed.col(0).asInstanceOf[KeySet[Any]],
+      df.getColumns.asInstanceOf[mutable.Set[Any]],
+      viewData,
     )
   }
-  
+
 //  def reindex[V](df: DataFrame[V], cols: Int*) = new DataFrame[V](
 //    df.transform(if (cols.length == 1) new DataFrame.RowFunction[V, AnyRef]() {
 //    override def apply(values:  Seq[V]):  Seq[ Seq[AnyRef]] = return Collections.singletonList[ Seq[AnyRef]](Collections.singletonList[AnyRef](values.get(cols(0))))
@@ -68,21 +76,31 @@ object Index {
 //
   def reset[V](df: DataFrame[V]): DataFrame[V] = {
     val index = (0 until df.length).toList
-    //new  ListBuffer[AnyRef](df.length)
+    // new  ListBuffer[AnyRef](df.length)
 //    for (i <- 0 until df.length) {
 //      index.add(i)
 //    }
-    new DataFrame[V](index, df.columns, new Views.ListView[V](df, false))
+    val viewData = new Views.ListView[V](df, false).asScala
+      .map(_.asInstanceOf[Seq[V]]).toList
+    new DataFrame[V](
+      index.asInstanceOf[KeySet[Any]],
+      df.getColumns.asInstanceOf[mutable.Set[Any]],
+      viewData,
+    )
   }
 }
 
 class Index(
-             private val indexMap: mutable.LinkedHashMap[Any, Int] = mutable.LinkedHashMap.empty
-           ) {
+    private val indexMap: mutable.LinkedHashMap[Any, Int] =
+      mutable.LinkedHashMap.empty,
+) {
 //  val it: Iterator[?] = names.iterator
-  def this() = this(new mutable.LinkedHashMap[Any, Int]().addAll((List.empty[Any]).zipWithIndex))
+  def this() = this(
+    new mutable.LinkedHashMap[Any, Int]().addAll(List.empty[Any].zipWithIndex),
+  )
 
-  def this(names: Iterable[Any]) = this(new mutable.LinkedHashMap[Any, Int]().addAll(names.zipWithIndex))
+  def this(names: Iterable[Any]) =
+    this(new mutable.LinkedHashMap[Any, Int]().addAll(names.zipWithIndex))
 
   def this(names: Iterable[Any], size: Int) = {
     this()
@@ -94,10 +112,9 @@ class Index(
   }
 
   def add(name: Any, value: Int): Unit = {
-    if (index.contains(name)) {
+    if (indexMap.contains(name))
       throw new IllegalArgumentException(s"duplicate name '$name' in index")
-    }
-    index(name) = value
+    indexMap(name) = value
   }
 
 //class Index(names: Seq[?], size: Int) {
@@ -118,48 +135,41 @@ class Index(
 //    this(Seq[AnyRef])
 //  }
 
-  def add(name: AnyRef, value: Int): Unit = {
-    if (indexMap.put(name, value) != null) throw new IllegalArgumentException("duplicate name '" + name + "' in index")
-  }
+//  def add(name: AnyRef, value: Int): Unit = {
+//    if (indexMap.put(name, value) != null)
+//      throw new IllegalArgumentException("duplicate name '" + name + "' in index")
+//  }
 
-  def extend(size: Int): Unit = {
-    for (i <- indexMap.size until size) {
-      add(i, i)
-    }
-  }
+  def extend(size: Int): Unit = for (i <- indexMap.size until size) add(i, i)
 
-  def set(name: AnyRef, value: Int): Unit = {
-    indexMap.put(name, value)
-  }
+  def set(name: Any, value: Int): Unit = indexMap.put(name, value)
 
-  def get(name: AnyRef): Int = {
+  def get(name: Any): Int = {
     val i = indexMap.get(name)
-    if (i == null) throw new IllegalArgumentException("name '" + name + "' not in index")
+    if (i == null)
+      throw new IllegalArgumentException("name '" + name + "' not in index")
     i.get
   }
 
-  def rename(names: LinkedHashMap[AnyRef, AnyRef]): Unit = {
-    val idx = new mutable.LinkedHashMap[AnyRef, Int]
+  def rename(names: Map[Any, AnyRef]): Unit = {
+    val idx = new mutable.LinkedHashMap[Any, Int]
 
-    for ((col ,value) <- indexMap) {
+    for ((col, value) <- indexMap)
       if (names.keySet.contains(col)) idx.put(names.get(col), value)
       else idx.put(col, value)
-    }
     // clear and add all names back to preserve insertion order
     indexMap.clear()
-    indexMap ++=(idx)
+    indexMap ++= idx
   }
 
   def names = indexMap.keySet
 
   def indices(names: Array[AnyRef]): Array[Int] = indices(names.toSeq)
 
-  def indices(names:  Seq[AnyRef]): Array[Int] = {
+  def indices(names: Seq[AnyRef]): Array[Int] = {
     val size = names.size
     val indices = new Array[Int](size)
-    for (i <- 0 until size) {
-      indices(i) = get(names(i))
-    }
+    for (i <- 0 until size) indices(i) = get(names(i))
     indices
   }
 }

@@ -18,52 +18,69 @@
 package torch.pandas.operate
 
 import java.util
+
+import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
 import torch.DataFrame
 import torch.DataFrame.Function
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 object Timeseries {
-  def rollapply[V](df: DataFrame[V], function: DataFrame.Function[ Seq[V], V], period: Int): DataFrame[V] = {
+  def rollapply[V](
+      df: DataFrame[V],
+      function: DataFrame.Function[Seq[V], V],
+      period: Int,
+  ): DataFrame[V] = {
     // can't use apply because rolling window functions are likely path dependent
-    val data = new  ListBuffer[ Seq[V]]()//df.size)
+    val data = new ListBuffer[Seq[V]]() // df.size)
     val f = new Timeseries.WindowFunction[V](function, period)
     for (c <- 0 until df.size) {
-      val column = new  ListBuffer[V]()//df.length)
+      val column = new ListBuffer[V]() // df.length)
       for (r <- 0 until df.length) {
-        column.add(f.apply(df.get(r, c)))
+        val windowFunc = f.apply(df.get(r, c))
+        column.append(windowFunc.asInstanceOf[V])
       }
-      data.add(column)
+      data.append(column.toSeq)
       f.reset()
     }
-    new DataFrame[V](df.index, df.columns, data)
+    new DataFrame[V](
+      df.getIndex,
+      df.getColumns.asInstanceOf[mutable.Set[Any]],
+      data.toList,
+    )
   }
 
-  private class WindowFunction[V] private(private val function: DataFrame.Function[ Seq[V], V], private val period: Int) extends DataFrame.Function[V, V] {
+  private class WindowFunction[V](
+      val function: DataFrame.Function[Seq[V], V],
+      val period: Int,
+  ) extends DataFrame.Function[V, V] {
 //    this.window = new ListBuffer[V]
-    final protected var window: ListBuffer[V] = new ListBuffer[V]()
+    protected final var window: ListBuffer[V] = new ListBuffer[V]()
 
     override def apply(value: V): V = {
-      while (window.size < period) window.append(null)
-      window.append(value)
-      val result = function.apply(window)
-      window.remove
+      while (window.size < period) window.append(null.asInstanceOf[V])
+      window.append(value.asInstanceOf[V])
+      val result = function.apply(window.toSeq)
+//      window.remove
+      window.clear()
       result
     }
 
-    def reset(): Unit = {
-      window.clear()
-    }
+    def reset(): Unit = window.clear()
   }
 
-  private class DiscreteDifferenceFunction extends DataFrame.Function[ Seq[Number], Number] {
-    override def apply(values:  Seq[Number]): Number = {
+  private class DiscreteDifferenceFunction
+      extends DataFrame.Function[Seq[Number], Number] {
+    override def apply(values: Seq[Number]): Number = {
       if (values.contains(null)) return null
-      values.get(values.size - 1).doubleValue - values.get(0).doubleValue
+      values(values.size - 1).doubleValue - values(0).doubleValue
     }
   }
 
-  private class PercentChangeFunction extends DataFrame.Function[ Seq[Number], Number] {
-    override def apply(values:  Seq[Number]): Number = {
+  private class PercentChangeFunction
+      extends DataFrame.Function[Seq[Number], Number] {
+    override def apply(values: Seq[Number]): Number = {
       if (values.contains(null)) return null
       val x1 = values(0).doubleValue
       val x2 = values(values.size - 1).doubleValue
@@ -72,16 +89,22 @@ object Timeseries {
   }
 
   def diff[V](df: DataFrame[V], period: Int): DataFrame[V] = {
-    val nonnumeric = df.nonnumeric
-    @SuppressWarnings(Array("unchecked")) val diff = df.numeric.apply(new Timeseries.WindowFunction[Number](new Timeseries.DiscreteDifferenceFunction, period)).asInstanceOf[DataFrame[V]]
-    if (nonnumeric.isEmpty) diff
-    else nonnumeric.join(diff)
+    val nonnumeric = df.nonnumeric()
+    @SuppressWarnings(Array("unchecked"))
+    val diff = df.numeric.apply(new Timeseries.WindowFunction[Number](
+      new Timeseries.DiscreteDifferenceFunction,
+      period,
+    )).asInstanceOf[DataFrame[V]]
+    if (nonnumeric.isEmpty) diff else nonnumeric.join(diff)
   }
 
   def percentChange[V](df: DataFrame[V], period: Int): DataFrame[V] = {
-    val nonnumeric = df.nonnumeric
-    @SuppressWarnings(Array("unchecked")) val diff = df.numeric.apply(new Timeseries.WindowFunction[Number](new Timeseries.PercentChangeFunction, period)).asInstanceOf[DataFrame[V]]
-    if (nonnumeric.isEmpty) diff
-    else nonnumeric.join(diff)
+    val nonnumeric = df.nonnumeric()
+    @SuppressWarnings(Array("unchecked"))
+    val diff = df.numeric.apply(new Timeseries.WindowFunction[Number](
+      new Timeseries.PercentChangeFunction,
+      period,
+    )).asInstanceOf[DataFrame[V]]
+    if (nonnumeric.isEmpty) diff else nonnumeric.join(diff)
   }
 }

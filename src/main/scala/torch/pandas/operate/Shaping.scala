@@ -17,49 +17,40 @@
  */
 package torch.pandas.operate
 
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
 import torch.DataFrame
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 object Shaping {
   def reshape[V](df: DataFrame[V], rows: Int, cols: Int): DataFrame[V] = {
     val reshaped = new DataFrame[V]
-    var it: Iterator[AnyRef] = null
-    it = df.columns.iterator
+    var it: Iterator[Any] = null
+    it = df.getColumns.iterator
     for (c <- 0 until cols) {
-      val name = if (it.hasNext) it.next
-      else c
+      val name = if (it.hasNext) it.next else c
       reshaped.add(name)
     }
-    it = df.index.iterator
+    it = df.getIndex.iterator
     for (r <- 0 until rows) {
-      val name = if (it.hasNext) it.next
-      else r
-      reshaped.append(name, Seq[V])
+      val name = if (it.hasNext) it.next else r
+      reshaped.append(name, Seq.empty)
     }
-    for (c <- 0 until cols) {
-      for (r <- 0 until rows) {
-        if (c < df.size && r < df.length) reshaped.set(r, c, df.get(r, c))
-      }
-    }
+    for (c <- 0 until cols) for (r <- 0 until rows)
+      if (c < df.size && r < df.length) reshaped.set(r, c, df.get(r, c))
     reshaped
   }
 
   def reshape[V](df: DataFrame[V], rows: Seq[?], cols: Seq[?]): DataFrame[V] = {
     val reshaped = new DataFrame[V]
 
-    for (name <- cols) {
-      reshaped.add(name)
-    }
+    for (name <- cols) reshaped.add(name)
 
-    for (name <- rows) {
-      reshaped.append(name, Seq[V])
-    }
+    for (name <- rows) reshaped.append(name, Seq.empty)
 
-    for (c <- cols) {
+    for (c <- cols)
 
-      for (r <- rows) {
-        if (df.columns.contains(c) && df.index.contains(r)) reshaped.set(r, c, df.get(r, c))
-      }
-    }
+      for (r <- rows) if (df.getColumns.contains(c) && df.getIndex.contains(r))
+        reshaped.set(r, c, df.get(r, c))
     reshaped
   }
 }

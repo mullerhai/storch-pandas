@@ -28,12 +28,13 @@ import javax.swing.JScrollPane
 import javax.swing.JTable
 import javax.swing.SwingUtilities
 import javax.swing.table.AbstractTableModel
-import org.apache.commons.math3.stat.regression.SimpleRegression
-//import org.knowm.xchart.XChartPanel
-//import org.knowm.xchart.internal.ChartBuilder
-//import org.knowm.xchart.internal.chartpart.Chart
 
+import scala.collection.mutable.LinkedHashMap
 import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
+
+import org.apache.commons.math3.stat.regression.SimpleRegression
+
 import com.xeiam.xchart.Chart
 import com.xeiam.xchart.ChartBuilder
 import com.xeiam.xchart.Series
@@ -41,54 +42,65 @@ import com.xeiam.xchart.SeriesLineStyle
 import com.xeiam.xchart.SeriesMarker
 import com.xeiam.xchart.StyleManager.ChartType
 import com.xeiam.xchart.XChartPanel
+
 import torch.DataFrame
 import torch.DataFrame.PlotType
-import scala.collection.mutable.LinkedHashMap
 
 object Display {
-  def draw[C <: Container, V](df: DataFrame[V], container: C, plotType: DataFrame.PlotType): C = {
+  def draw[C <: Container, V](
+      df: DataFrame[V],
+      container: C,
+      plotType: DataFrame.PlotType,
+  ): C = {
     val panels = new ListBuffer[XChartPanel]
     val numeric = df.numeric.fillna(0)
     val rows = Math.ceil(Math.sqrt(numeric.size)).toInt
     val cols = numeric.size / rows + 1
-    val xdata = new  ListBuffer[AnyRef]()//df.length)
-    val it = df.index.iterator
+    val xdata = new ListBuffer[Any]() // df.length)
+    val it = df.getIndex.iterator
     for (i <- 0 until df.length) {
-      val value = if (it.hasNext) it.next
-      else i
-      if (value.isInstanceOf[Number] || value.isInstanceOf[Date]) xdata.append(value)
+      val value = if (it.hasNext) it.next else i
+      if (value.isInstanceOf[Number] || value.isInstanceOf[Date]) xdata
+        .append(value)
       else if (PlotType.BAR == plotType) xdata.append(String.valueOf(value))
       else xdata.append(i)
     }
-    if (util.EnumSet.of(PlotType.GRID, PlotType.GRID_WITH_TREND).contains(plotType)) {
+    if (Set(PlotType.GRID, PlotType.GRID_WITH_TREND).contains(plotType))
 
-      for (col <- numeric.columns) {
-        val chart = new ChartBuilder().chartType(chartType(plotType)).width(800 / cols).height(800 / cols).title(String.valueOf(col)).build
-        val series = chart.addSeries(String.valueOf(col), xdata, numeric.col(col))
+      for (col <- numeric.getColumns) {
+        val chart = new ChartBuilder().chartType(chartType(plotType))
+          .width(800 / cols).height(800 / cols).title(String.valueOf(col)).build
+        val series = chart.addSeries(
+          String.valueOf(col),
+          xdata.asInstanceOf[Array[Double]],
+          numeric.col(col).asInstanceOf[Array[Double]],
+        )
         if (plotType eq PlotType.GRID_WITH_TREND) {
-          addTrend(chart, series, xdata)
+          addTrend(chart, series, xdata.toSeq)
           series.setLineStyle(SeriesLineStyle.NONE)
         }
         chart.getStyleManager.setLegendVisible(false)
-        chart.getStyleManager.setDatePattern(dateFormat(xdata))
+        chart.getStyleManager.setDatePattern(dateFormat(xdata.toSeq))
         panels.append(new XChartPanel(chart))
       }
-    }
     else {
       val chart = new ChartBuilder().chartType(chartType(plotType)).build
-      chart.getStyleManager.setDatePattern(dateFormat(xdata))
+      chart.getStyleManager.setDatePattern(dateFormat(xdata.toSeq))
       plotType match {
         case PlotType.SCATTER =>
         case PlotType.SCATTER_WITH_TREND =>
         case PlotType.LINE_AND_POINTS =>
-        case _ =>
-          chart.getStyleManager.setMarkerSize(0)
+        case _ => chart.getStyleManager.setMarkerSize(0)
       }
 
-      for (col <- numeric.columns) {
-        val series = chart.addSeries(String.valueOf(col), xdata, numeric.col(col))
+      for (col <- numeric.getColumns) {
+        val series = chart.addSeries(
+          String.valueOf(col),
+          xdata.asInstanceOf[Array[Double]],
+          numeric.col(col).asInstanceOf[Array[Double]],
+        )
         if (plotType eq PlotType.SCATTER_WITH_TREND) {
-          addTrend(chart, series, xdata)
+          addTrend(chart, series, xdata.toSeq)
           series.setLineStyle(SeriesLineStyle.NONE)
         }
       }
@@ -96,68 +108,96 @@ object Display {
     }
     if (panels.size > 1) container.setLayout(new GridLayout(rows, cols))
 
-    for (p <- panels) {
-      container.add(p)
-    }
+    for (p <- panels) container.add(p)
     container
   }
 
-  def plot[V](df: DataFrame[V], plotType: DataFrame.PlotType): Unit = {
+  def plot[V](df: DataFrame[V], plotType: DataFrame.PlotType): Unit =
     SwingUtilities.invokeLater(new Runnable() {
       override def run(): Unit = {
         val frame = draw(df, new JFrame(title(df)), plotType)
-        frame.setDefaultCloseOperation(DISPOSE_ON_CLOSE)
+        frame.setDefaultCloseOperation(2) // DISPOSE_ON_CLOSE)
         frame.pack()
         frame.setVisible(true)
       }
     })
-  }
 
   def show[V](df: DataFrame[V]): Unit = {
-    val columns = new  ListBuffer[AnyRef]()//df.columns)
+    val columns = new ListBuffer[AnyRef]() // df.columns)
     val types = df.types
-    SwingUtilities.invokeLater(new Runnable() {
-      override def run(): Unit = {
-        val frame = new JFrame(title(df))
-        val table = new JTable(new AbstractTableModel() {
-          override def getRowCount: Int = df.length
+    SwingUtilities.invokeLater {
+      new Runnable() {
+        override def run(): Unit = {
+          val frame = new JFrame(title(df))
+          val table = new JTable(new AbstractTableModel() {
+            override def getRowCount: Int = df.length
 
-          override def getColumnCount: Int = df.size
+            override def getColumnCount: Int = df.size
 
-          override def getValueAt(row: Int, col: Int): AnyRef = df.get(row, col)
+            override def getValueAt(row: Int, col: Int): V = df.get(row, col)
 
-          override def getColumnName(col: Int): String = String.valueOf(columns.get(col))
+            override def getColumnName(col: Int): String = String
+              .valueOf(columns(col))
 
-          override def getColumnClass(col: Int): Class[_] = types.get(col)
-        })
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF)
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE)
-        frame.add(new JScrollPane(table))
-        frame.pack()
-        frame.setVisible(true)
+            override def getColumnClass(col: Int): Class[?] = types(col)
+          })
+          table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF)
+          frame.setDefaultCloseOperation(2) // JFrame.DISPOSE_ON_CLOSE)
+          frame.add(new JScrollPane(table))
+          frame.pack()
+          frame.setVisible(true)
+        }
       }
-    })
+    }
   }
 
-  private def chartType(plotType: DataFrame.PlotType) = plotType match {
-    case PlotType.AREA =>
-      ChartType.Area
-    case PlotType.BAR =>
-      ChartType.Bar
-    case PlotType.GRID =>
-    case PlotType.SCATTER =>
-      ChartType.Scatter
-    case PlotType.SCATTER_WITH_TREND =>
-    case PlotType.GRID_WITH_TREND =>
-    case PlotType.LINE =>
-    case _ =>
-      ChartType.Line
-  }
+  private def chartType(plotType: DataFrame.PlotType): ChartType =
+    // Use a Scala match expression which is the equivalent of a Java switch
+    plotType match {
+      case PlotType.AREA => ChartType.Area
+      case PlotType.BAR => ChartType.Bar
+      // Combine multiple cases using |
+      case PlotType.GRID | PlotType.SCATTER => ChartType.Scatter
+      // Combine multiple cases using |
+      case PlotType.SCATTER_WITH_TREND | PlotType.GRID_WITH_TREND | PlotType
+            .LINE => ChartType.Line
+      // The default case
+      case _ => ChartType.Line // Explicitly handle default, though the previous case covers LINE
+    }
+//  private def chartType(plotType: DataFrame.PlotType) = plotType match {
+//    case PlotType.AREA =>
+//      ChartType.Area
+//    case PlotType.BAR =>
+//      ChartType.Bar
+//    case PlotType.GRID =>
+//      ChartType.Scatter
+//    case PlotType.SCATTER =>
+//      ChartType.Scatter
+//    case PlotType.SCATTER_WITH_TREND =>
+//      ChartType.Scatter
+//    case PlotType.GRID_WITH_TREND =>
+//
+//    case PlotType.LINE =>
+//    case _ =>
+//      ChartType.Line
+//  }
 
-  private def title(df: DataFrame[?]) = String.format("%s (%d rows x %d columns)", df.getClass.getCanonicalName, df.length, df.size)
+  private def title(df: DataFrame[?]) = String.format(
+    "%s (%d rows x %d columns)",
+    df.getClass.getCanonicalName,
+    df.length,
+    df.size,
+  )
 
-  private def dateFormat(xdata:  Seq[AnyRef]): String = {
-    val fields = Array[Int](Calendar.YEAR, Calendar.MONTH, Calendar.DAY_OF_MONTH, Calendar.HOUR_OF_DAY, Calendar.MINUTE, Calendar.SECOND)
+  private def dateFormat(xdata: Seq[Any]): String = {
+    val fields = Array[Int](
+      Calendar.YEAR,
+      Calendar.MONTH,
+      Calendar.DAY_OF_MONTH,
+      Calendar.HOUR_OF_DAY,
+      Calendar.MINUTE,
+      Calendar.SECOND,
+    )
     val formats = Array[String](" yyy", "-MMM", "-d", " H", ":mm", ":ss")
     val c1 = Calendar.getInstance
     val c2 = Calendar.getInstance
@@ -172,19 +212,18 @@ object Display {
         if (!xdata(i).isInstanceOf[Date]) return formats(0).substring(1)
         c2.setTime(classOf[Date].cast(xdata(i)))
         // check which components differ, those are the fields to output
-        for (j <- 1 until fields.length) {
+        for (j <- 1 until fields.length)
           if (c1.get(fields(j)) != c2.get(fields(j))) {
             first = Math.max(j - 1, first)
             last = Math.max(j, last)
           }
-        }
       }
       // construct a format string for the fields that differ
       var i = first
       while (i <= last && i < formats.length) {
-        format +=
-        if (format.isEmpty) formats(i).substring(1)
-        else formats(i)
+        val formatTmp =
+          if (format.isEmpty) formats(i).substring(1) else formats(i)
+        format += formatTmp
         i += 1
       }
       return format
@@ -192,7 +231,7 @@ object Display {
     formats(0).substring(1)
   }
 
-  private def addTrend(chart: Chart, series: Series, xdata:  Seq[AnyRef]): Unit = {
+  private def addTrend(chart: Chart, series: Series, xdata: Seq[Any]): Unit = {
     val model = new SimpleRegression
     val y = series.getYData.iterator
     var x = 0
@@ -202,7 +241,12 @@ object Display {
     }
     val mc = series.getMarkerColor
     val c = new Color(mc.getRed, mc.getGreen, mc.getBlue, 0x60)
-    val trend = chart.addSeries(series.getName + " (trend)", java.util.Arrays.asList(xdata(0), xdata(xdata.size - 1)), java.util.Arrays.asList(model.predict(0), model.predict(xdata.size - 1)))
+    val x2: Array[Double] = Array(
+      xdata(0).asInstanceOf[Double],
+      xdata(xdata.size - 1).asInstanceOf[Double],
+    )
+    val x3 = Array(model.predict(0), model.predict(xdata.size - 1))
+    val trend = chart.addSeries(series.getName + " (trend)", x2, x3)
     trend.setLineColor(c)
     trend.setMarker(SeriesMarker.NONE)
   }

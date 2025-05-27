@@ -17,102 +17,244 @@
  */
 package torch.pandas.operate
 
-import scala.collection.mutable
-import scala.collection.AbstractSeq
+import java.util
+
 import scala.collection.AbstractMap
+import scala.collection.AbstractSeq
 import scala.collection.AbstractSet
 import scala.collection.Iterator
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
+
 import torch.DataFrame
 import torch.DataFrame.Function
 
 object Views {
+  class ListView[V](val df: DataFrame[V], val transpose: Boolean)
+      extends util.AbstractList[util.List[V]] {
+    override def get(index: Int) =
+      new Views.SeriesListView[V](df, index, !transpose)
 
-  class ListView[V](val df: DataFrame[V], val transpose: Boolean) extends AbstractSeq[List[V]] {
-    override def length: Int = if (transpose) df.length else df.size
-
-    override def get(index: Int) = new Views.SeriesListView[V](df, index, !transpose)
-
-    //: List[V]
-    override def apply(index: Int) = new SeriesListView(df, index, !transpose)
+    override def size: Int = if (transpose) df.length else df.size
   }
 
-  class SeriesListView[V](val df: DataFrame[V], val index: Int, val transpose: Boolean) extends AbstractSeq[V] {
-    override def length: Int = if (transpose) df.length else df.size
-    override def get(index: Int): V = if (transpose) df.get(index, this.index)
+  class SeriesListView[V](
+      val df: DataFrame[V],
+      val index: Int,
+      val transpose: Boolean,
+  ) extends util.AbstractList[V] {
+    override def get(index: Int): V =
+      if (transpose) df.get(index, this.index) else df.get(this.index, index)
 
-    override def apply(index: Int): V = if (transpose) df.get(index, this.index) else df.get(this.index, index)
+    override def size: Int = if (transpose) df.length else df.size
   }
 
-  class MapView[V](val df: DataFrame[V], val transpose: Boolean) extends AbstractSeq[Map[Any, V]] {
-    override def length: Int = if (transpose) df.length else df.size
-    override def get(index: Int) = new Views.SeriesMapView[V](df, index, !transpose)
+  class MapView[V](val df: DataFrame[V], val transpose: Boolean)
+      extends util.AbstractList[util.Map[AnyRef, V]] {
+    override def get(index: Int) =
+      new Views.SeriesMapView[V](df, index, !transpose)
 
-    //: Map[Any, V]
-    override def apply(index: Int) = new Views.SeriesMapView(df, index, !transpose)
+    override def size: Int = if (transpose) df.length else df.size
   }
 
-  class SeriesMapView[V](val df: DataFrame[V], val index: Int, val transpose: Boolean) extends AbstractMap[Any, V] {
-    override def iterator: Iterator[(Any, V)] = {
-      val names = if (transpose) df.index else df.columns
-      val it = names.iterator
-      new Iterator[(Any, V)] {
-        private var valueIdx = 0
+  class SeriesMapView[V](
+      val df: DataFrame[V],
+      val index: Int,
+      val transpose: Boolean,
+  ) extends util.AbstractMap[AnyRef, V] {
+    override def entrySet: util.Set[util.Map.Entry[AnyRef, V]] =
+      new util.AbstractSet[util.Map.Entry[AnyRef, V]]() {
+        override def iterator: util.Iterator[util.Map.Entry[AnyRef, V]] = {
+          val names = if (transpose) df.getIndex else df.getColumns
+          val it = names.iterator
+          new util.Iterator[util.Map.Entry[AnyRef, V]]() {
+            var value = 0
 
-        override def hasNext: Boolean = it.hasNext
+            override def hasNext: Boolean = return it.hasNext
 
-        override def next(): (Any, V) = {
-          val key = it.next()
-          val value = if (transpose) df.get(valueIdx, index) else df.get(index, valueIdx)
-          valueIdx += 1
-          (key, value)
+            override def next: util.Map.Entry[AnyRef, V] = {
+              val key = it.next
+              val value = { this.value += 1; this.value - 1 }
+              new util.Map.Entry[AnyRef, V]() {
+                override def getKey: AnyRef = return key.asInstanceOf[AnyRef]
+
+                override def getValue: V =
+                  return if (transpose) df.get(value, index)
+                  else df.get(index, value)
+
+                override def setValue(value: V): V =
+                  throw new UnsupportedOperationException
+              }
+            }
+
+            override def remove(): Unit =
+              throw new UnsupportedOperationException
+          }
         }
-      }
-    }
 
-    override def get(key: Any): Option[V] = {
-      val names = if (transpose) df.index else df.columns
-      if (names.contains(key)) {
-        val idx = names.toList.indexOf(key)
-        Some(if (transpose) df.get(idx, index) else df.get(index, idx))
-      } else {
-        None
+        override def size: Int = return if (transpose) df.length else df.size
       }
-    }
   }
 
-  class TransformedView[V, U](val df: DataFrame[V], val transform: Function[V, U], val transpose: Boolean) extends AbstractSeq[List[U]] {
-    override def length: Int = if (transpose) df.length else df.size
-    override def get(index: Int) = new Views.TransformedSeriesView[V, U](df, transform, index, !transpose)
+  class TransformedView[V, U](
+      val df: DataFrame[V],
+      val transform: DataFrame.Function[V, U],
+      protected val transpose: Boolean,
+  ) extends util.AbstractList[util.List[U]] {
+    override def get(index: Int) =
+      new Views.TransformedSeriesView[V, U](df, transform, index, !transpose)
 
-    override def apply(index: Int): List[U] = new TransformedSeriesView(df, transform, index, !transpose)
+    override def size: Int = if (transpose) df.length else df.size
   }
 
-  class TransformedSeriesView[V, U](val df: DataFrame[V], val transform: Function[V, U], val index: Int, val transpose: Boolean) extends AbstractSeq[U] {
-    override def length: Int = if (transpose) df.length else df.size
-
+  class TransformedSeriesView[V, U](
+      val df: DataFrame[V],
+      val transform: DataFrame.Function[V, U],
+      protected val index: Int,
+      protected val transpose: Boolean,
+  ) extends util.AbstractList[U] {
     override def get(index: Int): U = {
-      val value = if (transpose) df.get(index, this.index)
-      else df.get(this.index, index)
-      transform.apply(value)
+      val value =
+        if (transpose) df.get(index, this.index) else df.get(this.index, index)
+      transform.apply(value.asInstanceOf[V])
     }
-    override def apply(index: Int): U = {
-      val value = if (transpose) df.get(index, this.index)
-      else df.get(this.index, index)
-      transform.apply(value)
-    }
+
+    override def size: Int = if (transpose) df.length else df.size
   }
 
-  class FlatView[V](val df: DataFrame[V]) extends AbstractSeq[V] {
-    override def length: Int = df.size * df.length
+  class FlatView[V](val df: DataFrame[V]) extends util.AbstractList[V] {
+    override def get(index: Int): V = df
+      .get(index % df.length, index / df.length)
+
     override def size: Int = df.size * df.length
-
-    override def get(index: Int): V = df.get(index % df.length, index / df.length)
-
-    override def apply(index: Int): V = df.get(index % df.length, index / df.length)
   }
 
-  class FillNaFunction[V](val fill: V) extends Function[V, V] {
-    override def apply(value: V): V = if (value == null) fill else value
+  class FillNaFunction[V](val fill: V) extends DataFrame.Function[V, V] {
+    override def apply(value: V): V =
+      if (value == null) fill else value.asInstanceOf[V]
   }
 }
+//object Views {
+//
+//  class ListView[V](val df: DataFrame[V], val transpose: Boolean) extends AbstractSeq[List[V]] {
+//    override def length: Int = if (transpose) df.length else df.size
+//
+//    def get(index: Int) = new Views.SeriesListView[V](df, index, !transpose)
+//
+//    override def apply(index: Int) = new SeriesListView(df, index, !transpose).toList
+//
+//    override def iterator: Iterator[List[V]] = {
+//      println("hhe")
+//      df.iterator
+////      df.toList.map(_.toList).iterator
+//    }
+//  }
+//
+//  class SeriesListView[V](val df: DataFrame[V], val index: Int, val transpose: Boolean) extends AbstractSeq[V] {
+//    override def length: Int = if (transpose) df.length else df.size
+//    def get(index: Int): V = df.get(index, this.index)
+//
+//
+//    override def apply(index: Int): V = if (transpose) df.get(index, this.index) else df.get(this.index, index)
+//
+//    override def iterator: Iterator[V] = {
+//      df.itervalues
+//    }
+//  }
+//
+//  class MapView[V](val df: DataFrame[V], val transpose: Boolean) extends AbstractSeq[Map[Any, V]] {
+//    override def length: Int = if (transpose) df.length else df.size
+//    def get(index: Int) = new Views.SeriesMapView[V](df, index, !transpose)
+//
+//    override def iterator: Iterator[Map[Any, V]] = {
+//      df.itermap
+//    }
+//
+//    //: Map[Any, V]
+//    override def apply(index: Int) = new Views.SeriesMapView(df, index, !transpose).toMap
+//  }
+//
+//  class SeriesMapView[V](val df: DataFrame[V], val index: Int, val transpose: Boolean) extends AbstractMap[Any, V] {
+//
+//    override def iterator: Iterator[(Any, V)] = {
+//      val names = if (transpose) df.getIndex else df.getColumns
+//      val it = names.iterator
+//      new Iterator[(Any, V)] {
+//        private var valueIdx = 0
+//
+//        override def hasNext: Boolean = it.hasNext
+//
+//        override def next(): (Any, V) = {
+//          val key = it.next()
+//          val value = if (transpose) df.get(valueIdx, index) else df.get(index, valueIdx)
+//          valueIdx += 1
+//          (key, value)
+//        }
+//      }
+//    }
+//
+//    def get(key: Any): Option[V] = {
+//      val names = if (transpose) df.getIndex else df.getColumns
+//      if (names.contains(key)) {
+//        val idx = names.toList.indexOf(key)
+//        Some(if (transpose) df.get(idx, index) else df.get(index, idx))
+//      } else {
+//        None
+//      }
+//    }
+//
+//    override def -(key: Any): collection.Map[Any, V] = ???
+//
+//    override def -(key1: Any, key2: Any, keys: Any*): collection.Map[Any, V] = ???
+//  }
+//
+//  class TransformedView[V, U](val df: DataFrame[V], val transform: Function[V, U], val transpose: Boolean) extends AbstractSeq[List[U]] {
+//    override def length: Int = if (transpose) df.length else df.size
+//    def get(index: Int) = new Views.TransformedSeriesView[V, U](df, transform, index, !transpose)
+//
+//
+//    override def apply(index: Int): List[U] = new TransformedSeriesView(df, transform, index, !transpose).toList
+//
+//    override def iterator: Iterator[List[U]] = ???
+////      {
+////
+////      df.toList.map(_.toList).iterator
+////    }
+//  }
+//
+//  class TransformedSeriesView[V, U](val df: DataFrame[V], val transform: Function[V, U], val index: Int, val transpose: Boolean) extends AbstractSeq[U] {
+//    override def length: Int = if (transpose) df.length else df.size
+//
+//    def get(index: Int): U = {
+//      val value = if (transpose) df.get(index, this.index)
+//      else df.get(this.index, index)
+//      transform.apply(value)
+//    }
+//    override def apply(index: Int): U = {
+//      val value = if (transpose) df.get(index, this.index)
+//      else df.get(this.index, index)
+//      transform.apply(value)
+//    }
+//
+//    override def iterator: Iterator[U] = ???
+////    {
+////
+////    }
+//  }
+//
+//  class FlatView[V](val df: DataFrame[V]) extends AbstractSeq[V] {
+//    override def length: Int = df.size * df.length
+////    override def size: Int = df.size * df.length
+//    def get(index: Int): V = df.get(index % df.length, index / df.length)
+//
+//
+//    override def apply(index: Int): V = df.get(index % df.length, index / df.length)
+//
+//    override def iterator: Iterator[V] = df.flatten.iterator
+//  }
+//
+//  class FillNaFunction[V](val fill: V) extends Function[V, V] {
+//    override def apply(value: V): V = if (value == null) fill else value
+//  }
+//}

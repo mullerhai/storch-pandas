@@ -18,65 +18,75 @@
 package torch.pandas.operate
 
 import java.util
+
+import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
+
+import Aggregation.Unique
 import torch.DataFrame
 import torch.DataFrame.Aggregate
 import torch.DataFrame.KeyFunction
-import Aggregation.Unique
-
-import scala.collection.mutable
-import scala.jdk.CollectionConverters.*
-import scala.collection.mutable.{LinkedHashMap, *}
 
 object Pivoting {
-  def pivot[V](df: DataFrame[V], rows: Array[Int], cols: Array[Int], values: Array[Int]): DataFrame[V] = {
+  def pivot[V](
+      df: DataFrame[V],
+      rows: Array[Int],
+      cols: Array[Int],
+      values: Array[Int],
+  ): DataFrame[V] = {
     val grouped = df.groupBy(rows)
     val exploded = grouped.explode
     val aggregates = new mutable.LinkedHashMap[Int, Aggregation.Unique[V]]
 
-    for (entry <- exploded.toSeq) {
-      exploded.put(entry._1, entry._2.groupBy(cols))
-    }
-    for (v <- values) {
-      aggregates.put(v, new Aggregation.Unique[V])
-    }
-    pivot(exploded, aggregates, grouped.groups.columns)
+    for (entry <- exploded.toSeq) exploded.put(entry._1, entry._2.groupBy(cols))
+    for (v <- values) aggregates.put(v, new Aggregation.Unique[V])
+    pivot(exploded, aggregates, grouped.groups.getColumns())
   }
 
-  def pivot[I, O](df: DataFrame[I], rows: DataFrame.KeyFunction[I], cols: DataFrame.KeyFunction[I], values: LinkedHashMap[Int, _ <: DataFrame.Aggregate[I, O]]): DataFrame[O] = {
+  def pivot[I, O](
+      df: DataFrame[I],
+      rows: DataFrame.KeyFunction[I],
+      cols: DataFrame.KeyFunction[I],
+      values: LinkedHashMap[Int, ? <: DataFrame.Aggregate[I, O]],
+  ): DataFrame[O] = {
     val grouped = df.groupBy(rows)
     val exploded = grouped.explode
 
-    for (entry <- exploded.entrySet) {
-      exploded.put(entry.getKey, entry.getValue.groupBy(cols))
-    }
-    pivot(exploded, values, grouped.groups.columns)
+    for (entry <- exploded) exploded.put(entry._1, entry._2.groupBy(cols))
+    pivot(exploded, values, grouped.groups.getColumns())
   }
 
-  @SuppressWarnings(Array("unchecked")) private def pivot[I, O](grouped: LinkedHashMap[AnyRef, DataFrame[I]], values: LinkedHashMap[Int, _ <: DataFrame.Aggregate[I, O]], columns: Set[Int]) = {
-    val pivotCols = new util.LinkedHashSet[AnyRef]
-    val pivotData = new mutable.LinkedHashMap[AnyRef, LinkedHashMap[AnyRef,  Seq[I]]]
-    val pivotFunctions = new mutable.LinkedHashMap[AnyRef, DataFrame.Aggregate[I, _]]
-    val colNames = new  ListBuffer[AnyRef]()//grouped.values.iterator.next.columns)
+  @SuppressWarnings(Array("unchecked"))
+  private def pivot[I, O](
+      grouped: LinkedHashMap[Any, DataFrame[I]],
+      values: LinkedHashMap[Int, ? <: DataFrame.Aggregate[I, O]],
+      columns: Set[Int],
+  ) = {
+    val pivotCols = new mutable.LinkedHashSet[Any]
+    val pivotData = new mutable.LinkedHashMap[Any, LinkedHashMap[Any, Seq[Any]]]
+    val pivotFunctions = new mutable.LinkedHashMap[Any, DataFrame.Aggregate[I, ?]]
+    val colNames = new ListBuffer[AnyRef]() // grouped.values.iterator.next.columns)
     // allocate row -> column -> data maps
 
     for (rowEntry <- grouped) {
-      val rowData = new mutable.LinkedHashMap[AnyRef,  Seq[I]]
+      val rowData = new mutable.LinkedHashMap[Any, Seq[Any]]
 
       for (c <- columns) {
         val colName = colNames(c)
-        rowData.put(colName, new  ListBuffer[I])
+        rowData.put(colName, Seq.empty)
         pivotCols.add(colName)
       }
 
-      for (colKey <- rowEntry._2.groups.keys) {
+      for (colKey <- rowEntry._2.groups.keys())
 
         for (c <- values.keySet) {
-          val colName = name(colKey, colNames.get(c), values)
-          rowData.put(colName, new  ListBuffer[I])
+          val colName = name(colKey, colNames(c), values)
+          rowData.put(colName, Seq.empty)
           pivotCols.add(colName)
-          pivotFunctions.put(colName, values.get(c))
+          pivotFunctions.put(colName, values.get(c).get)
         }
-      }
       pivotData.put(rowEntry._1, rowData)
     }
     // collect data for row and column groups
@@ -106,38 +116,39 @@ object Pivoting {
       }
     }
     // iterate over row, column pairs and apply aggregate functions
-    val pivot = new DataFrame[O](pivotData.keySet, pivotCols)
+    val pivot: DataFrame[O] = new DataFrame[O](pivotData.keySet, pivotCols)
 
-    for (col <- pivot.columns) {
+    for (col <- pivot.getColumns)
 
-      for (row <- pivot.index) {
+      for (row <- pivot.getIndex) {
         val data = pivotData.get(row).get(col)
         if (data != null) {
-          val func = pivotFunctions.get(col)
-          if (func != null) pivot.set(row, col, func.apply(data).asInstanceOf[O])
-          else pivot.set(row, col, data.get(0).asInstanceOf[O])
+          val func = pivotFunctions.get(col).get
+          if (func != null) pivot.set(
+            row,
+            col,
+            func.apply(data.map(_.asInstanceOf[I])).asInstanceOf[O],
+          )
+          else pivot.set(row, col, data(0).asInstanceOf[O])
         }
       }
-    }
     pivot
   }
 
-  private def name(key: AnyRef, name: AnyRef, values: LinkedHashMap[?, ?]) = {
+  private def name(key: Any, name: AnyRef, values: LinkedHashMap[?, ?]) = {
     var colName = key
     // if multiple value columns are requested the
     // value column name must be added to the pivot column name
     if (values.size > 1) {
-      val tmp = new  ListBuffer[AnyRef]()
+      val tmp = new ListBuffer[Any]()
       tmp.append(name)
-      if (key.isInstanceOf[Seq[?]]) {
+      if (key.isInstanceOf[Seq[AnyRef]])
 
-        for (col <- classOf[Seq[?]].cast(key)) {
-          tmp.append(col)
-        }
-      }
+        for (col <- classOf[Seq[AnyRef]].cast(key)) tmp.append(col)
       else tmp.append(key)
       colName = tmp
     }
     colName
   }
+
 }

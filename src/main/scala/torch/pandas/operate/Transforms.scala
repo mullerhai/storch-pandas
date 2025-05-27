@@ -17,17 +17,17 @@
  */
 package torch.pandas.operate
 
-import torch.DataFrame.Function
-import org.apache.commons.math3.stat.descriptive.StorelessUnivariateStatistic
-import torch.DataFrame
-//import torch.pandas.operate.Aggregation.Sum
-import org.apache.commons.math3.stat.descriptive.StorelessUnivariateStatistic
-import org.apache.commons.math3.stat.descriptive.summary.Sum
-import org.apache.commons.math3.stat.descriptive.summary.Product
-import org.apache.commons.math3.stat.descriptive.rank.Min
-import org.apache.commons.math3.stat.descriptive.rank.Max
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
 
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import org.apache.commons.math3.stat.descriptive.StorelessUnivariateStatistic
+import org.apache.commons.math3.stat.descriptive.rank.Max
+import org.apache.commons.math3.stat.descriptive.rank.Min
+import org.apache.commons.math3.stat.descriptive.summary.Product
+import org.apache.commons.math3.stat.descriptive.summary.Sum
+
+import torch.DataFrame
+import torch.DataFrame.Function
 
 /*
  * storch -- Data frames for Java
@@ -52,13 +52,13 @@ trait CumulativeFunction[I, O] extends Function[I, O] {
 }
 
 private class AbstractCumulativeFunction(
-                                          private val stat: StorelessUnivariateStatistic,
-                                          private val initialValue: Double
-                                        ) extends CumulativeFunction[Number, Number] {
+    private val stat: StorelessUnivariateStatistic,
+    private val initialValue: Double,
+) extends CumulativeFunction[Number, Number] {
   reset()
 
   override def apply(value: Number): Number = {
-    stat.increment(value.doubleValue)
+    stat.increment(value.asInstanceOf[Number].doubleValue)
     stat.getResult
   }
 
@@ -66,6 +66,15 @@ private class AbstractCumulativeFunction(
     stat.clear()
     stat.increment(initialValue.doubleValue)
   }
+
+  /** Perform computation on the specified input value and return the result.
+    *
+    * @param value
+    *   the input value
+    * @return
+    *   the result
+    */
+//  override def apply(value: I): Number = ???
 }
 
 object Transforms {
@@ -73,9 +82,11 @@ object Transforms {
 
   class CumulativeProduct extends AbstractCumulativeFunction(new Product(), 1)
 
-  class CumulativeMin extends AbstractCumulativeFunction(new Min(), Double.MaxValue)
+  class CumulativeMin
+      extends AbstractCumulativeFunction(new Min(), Double.MaxValue)
 
-  class CumulativeMax extends AbstractCumulativeFunction(new Max(), Double.MinValue)
+  class CumulativeMax
+      extends AbstractCumulativeFunction(new Max(), Double.MinValue)
 }
 //
 //object Transforms {

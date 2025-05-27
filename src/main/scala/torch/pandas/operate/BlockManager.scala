@@ -17,73 +17,41 @@
  */
 package torch.pandas.operate
 
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
-
-/*
- * storch -- Data frames for Java
- * Copyright (c) 2014, 2015 IBM Corp.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
 import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
 import scala.collection.mutable.ListBuffer
 
-class BlockManager[V] private(private val blocks: mutable.ListBuffer[mutable.ListBuffer[V]]) {
-  def this() = this(mutable.ListBuffer.empty[mutable.ListBuffer[V]])
+class BlockManager[V] private (
+    private val blocks: mutable.Buffer[mutable.Buffer[Any]],
+) {
+  def this() = this(mutable.Buffer.empty[mutable.Buffer[Any]])
 
-  def this(data: Iterable[Iterable[V]]) = {
+  def this(data: Iterable[Iterable[Any]]) = {
     this()
-    for (col <- data) {
-      add(mutable.ListBuffer.from(col))
-    }
+    for (col <- data) add(mutable.Buffer.from(col))
   }
 
   def reshape(cols: Int, rows: Int): Unit = {
-    while (blocks.size < cols) {
+    while (blocks.size < cols)
       add(mutable.ListBuffer.fill(rows)(null.asInstanceOf[V]))
-    }
 
-    for (block <- blocks) {
-      while (block.size < rows) {
-        block.addOne(null.asInstanceOf[V])
-      }
-    }
+    for (block <- blocks)
+      while (block.size < rows) block.addOne(null.asInstanceOf[V])
   }
 
-  def get(col: Int, row: Int): V = {
-    blocks(col)(row)
-  }
+  def get(col: Int, row: Int): Any = blocks(col)(row)
 
-  def set(value: V, col: Int, row: Int): Unit = {
-    blocks(col)(row) = value
-  }
+  def set(value: Any, col: Int, row: Int): Unit = blocks(col)(row) = value
 
-  def add(col: mutable.ListBuffer[V]): Unit = {
+  def add(col: mutable.Buffer[Any]): Unit = {
     val len = length()
-    while (col.size < len) {
-      col.addOne(null.asInstanceOf[V])
-    }
+    while (col.size < len) col.addOne(null.asInstanceOf[V])
     blocks.addOne(col)
   }
 
-  def size(): Int = {
-    blocks.size
-  }
+  def size(): Int = blocks.size
 
-  def length(): Int = {
-    if (blocks.isEmpty) 0 else blocks.head.size
-  }
+  def length(): Int = if (blocks.isEmpty) 0 else blocks.head.size
 }
 //class BlockManager[V](data: Seq[? <: Seq[? <: V]]) {
 //  final private var blocks: ListBuffer[Seq[V]] = new ListBuffer[Seq[V]]()
