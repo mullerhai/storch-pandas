@@ -36,7 +36,7 @@ object Shaping {
       reshaped.append(name, Seq.empty)
     }
     for (c <- 0 until cols) for (r <- 0 until rows)
-      if (c < df.size && r < df.length) reshaped.set(r, c, df.get(r, c))
+      if (c < df.size && r < df.length) reshaped.set(r, c, df.getFromIndex(r, c))
     reshaped
   }
 
@@ -50,7 +50,7 @@ object Shaping {
     for (c <- cols)
 
       for (r <- rows) if (df.getColumns.contains(c) && df.getIndex.contains(r))
-        reshaped.set(r, c, df.get(r, c))
+        reshaped.set(r, c, df.getFromIndex(r.asInstanceOf[Int], c.asInstanceOf[Int]))
     reshaped
   }
 }

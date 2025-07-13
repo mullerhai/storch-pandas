@@ -98,7 +98,7 @@ object Serialization {
         clamp(
           width.get(column).get,
           MAX_COLUMN_WIDTH,
-          fmt(types(c), df.get(r, c)).length,
+          fmt(types(c), df.getFromIndex(r, c)).length,
         ),
       )
     }
@@ -135,8 +135,8 @@ object Serialization {
         w = width.get(columns(c)).get
         println(s"col ${columns(c).toString} w $w")
         if (classOf[Number].isAssignableFrom(cls)) sb
-          .append(lpad(fmt(cls, df.get(r, c)), w))
-        else sb.append(truncate(rpad(fmt(cls, df.get(r, c)), w), w))
+          .append(lpad(fmt(cls, df.getFromIndex(r, c)), w))
+        else sb.append(truncate(rpad(fmt(cls, df.getFromIndex(r, c)), w), w))
       }
       sb.append(NEWLINE)
       // skip rows if necessary to limit output
@@ -427,6 +427,7 @@ object Serialization {
 
   @throws[IOException]
   def readXls(input: InputStream): DataFrame[AnyRef] = {
+//    val wb = new XSSFWorkbook(input)
     val wb = new HSSFWorkbook(input)
     val sheet = wb.getSheetAt(0)
     val columns = new ListBuffer[Any]
@@ -471,7 +472,7 @@ object Serialization {
       row = sheet.createRow(r + 1)
       for (c <- 0 until df.size) {
         val cell = row.createCell(c)
-        writeCell(cell, df.get(r, c))
+        writeCell(cell, df.getFromIndex(r, c))
       }
     }
     //  write to stream
@@ -528,7 +529,7 @@ object Serialization {
       val columns = new ListBuffer[Int]
       for (i <- 1 to md.getParameterCount) columns.append(md.getParameterType(i))
       for (r <- 0 until df.length) {
-        for (c <- 1 to df.size) stmt.setObject(c, df.get(r, c - 1))
+        for (c <- 1 to df.size) stmt.setObject(c, df.getFromIndex(r, c - 1))
         stmt.addBatch()
       }
       stmt.executeBatch

@@ -127,7 +127,7 @@ object Conversion:
       converters.find(conv =>
         // Check if all values in the column can be converted by this converter
         (0 until rows).forall { r =>
-          val value = df.get(r, c)
+          val value = df.getFromIndex(r, c)
           // A value is convertible if conv.apply(value) is not null OR
           // if it is null, it must be convertible by the NA converter (i.e., it's the NA string)
           conv.apply(value.asInstanceOf[V]) != null ||
@@ -201,7 +201,7 @@ object Conversion:
       val convOption = conversions.get(c)
 
       for (r <- 0 until rows) {
-        val originalValue = df.get(r, c)
+        val originalValue = df.getFromIndex(r, c)
         val convertedValue: Any = convOption match {
           case Some(conv) =>
             // Apply the specific converter if found

@@ -22,11 +22,11 @@ import scala.collection.mutable.LinkedHashMap
 import scala.collection.mutable.ListBuffer
 
 class BlockManager[V] private (
-    private val blocks: mutable.Buffer[mutable.Buffer[Any]],
+    private val blocks: mutable.Buffer[mutable.Buffer[V]],
 ) {
-  def this() = this(mutable.Buffer.empty[mutable.Buffer[Any]])
+  def this() = this(mutable.Buffer.empty[mutable.Buffer[V]])
 
-  def this(data: Iterable[Iterable[Any]]) = {
+  def this(data: Iterable[Iterable[V]]) = {
     this()
     for (col <- data) add(mutable.Buffer.from(col))
   }
@@ -39,11 +39,13 @@ class BlockManager[V] private (
       while (block.size < rows) block.addOne(null.asInstanceOf[V])
   }
 
-  def get(col: Int, row: Int): Any = blocks(col)(row)
+  def get(col: Int, row: Int): V = blocks(col)(row)
 
-  def set(value: Any, col: Int, row: Int): Unit = blocks(col)(row) = value
+  def set(value: V, col: Int, row: Int): Unit = {
+    blocks(col)(row) = value
+  }
 
-  def add(col: mutable.Buffer[Any]): Unit = {
+  def add(col: mutable.Buffer[V]): Unit = {
     val len = length()
     while (col.size < len) col.addOne(null.asInstanceOf[V])
     blocks.addOne(col)

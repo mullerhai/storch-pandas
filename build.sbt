@@ -1,4 +1,3 @@
-ThisBuild / version := "0.1.0"
 
 ThisBuild / scalaVersion := "3.6.4"
 
@@ -71,7 +70,9 @@ ThisBuild / homepage := Some(new URL("https://storch.dev/api/"))
 ThisBuild / scmInfo := Some( ScmInfo( url( "https://github.com/mullerhai/storch-pandas" ), "scm:git:https://github.com/mullerhai/storch-pandas.git" ) )
 //ThisBuild / scmInfo := Some(new ScmInfo("https://github.com/mullerhai/storch-k8s.git"))
 //val scrImageVersion = "4.3.0" //4.0.34
-//libraryDependencies +=   "dev.storch" % "core_3" % "0.2.6-1.15.1"
+libraryDependencies +=  "io.github.mullerhai" % "storch-pickle_3" % "0.1.3"
+libraryDependencies +=  "io.github.mullerhai" % "storch-numpy_3" % "0.1.4"
+libraryDependencies += "io.github.mullerhai" % "storch-safe-tensor_3" % "0.1.1"
 
 // https://mvnrepository.com/artifact/com.google.doclava/doclava
 libraryDependencies += "com.google.doclava" % "doclava" % "1.0.6"
@@ -100,7 +101,7 @@ libraryDependencies += "org.slf4j" % "slf4j-api" % "2.1.0-alpha1"
 // https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-annotation
 libraryDependencies += "io.dropwizard.metrics" % "metrics-annotation" % "4.2.30"
 libraryDependencies += "io.dropwizard.metrics" % "metrics-core" % "4.2.30"
-
+libraryDependencies += "io.github.mullerhai" % "storch-pickle_3" % "0.1.2"
 ThisBuild  / assemblyMergeStrategy := {
   case v if v.contains("module-info.class")   => MergeStrategy.discard
   case v if v.contains("UnusedStub")          => MergeStrategy.first

@@ -64,6 +64,7 @@ object Pivoting {
       values: LinkedHashMap[Int, ? <: DataFrame.Aggregate[I, O]],
       columns: Set[Int],
   ) = {
+    val pivotColsBak = new ListBuffer[Any]
     val pivotCols = new mutable.LinkedHashSet[Any]
     val pivotData = new mutable.LinkedHashMap[Any, LinkedHashMap[Any, Seq[Any]]]
     val pivotFunctions = new mutable.LinkedHashMap[Any, DataFrame.Aggregate[I, ?]]
@@ -77,6 +78,7 @@ object Pivoting {
         val colName = colNames(c)
         rowData.put(colName, Seq.empty)
         pivotCols.add(colName)
+        pivotColsBak.append(colName)
       }
 
       for (colKey <- rowEntry._2.groups.keys())
@@ -85,6 +87,7 @@ object Pivoting {
           val colName = name(colKey, colNames(c), values)
           rowData.put(colName, Seq.empty)
           pivotCols.add(colName)
+          pivotColsBak.append(colName)
           pivotFunctions.put(colName, values.get(c).get)
         }
       pivotData.put(rowEntry._1, rowData)
@@ -104,7 +107,7 @@ object Pivoting {
           val colData = rowData.get(colName).toBuffer
           // optimization, only add first value
           // since the values are all the same (due to grouping)
-          colData.append(colEntry._2.get(0, c))
+          colData.append(colEntry._2.getFromIndex(0, c))
         }
         // add values for aggregation
 
@@ -116,7 +119,7 @@ object Pivoting {
       }
     }
     // iterate over row, column pairs and apply aggregate functions
-    val pivot: DataFrame[O] = new DataFrame[O](pivotData.keySet, pivotCols)
+    val pivot: DataFrame[O] = new DataFrame[O](pivotData.toSeq.map(_._1), pivotColsBak.toSeq.asInstanceOf[Seq[AnyRef]])
 
     for (col <- pivot.getColumns)
 

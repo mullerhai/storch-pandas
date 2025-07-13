@@ -27,7 +27,7 @@ object Inspection {
     val types = new ListBuffer[Class[?]]()
     var c = 0
     while (c < df.size && 0 < df.length) {
-      val value = df.get(0, c)
+      val value = df.getFromIndex(0, c)
       types.append(if (value != null) value.getClass else classOf[AnyRef])
       c += 1
     }

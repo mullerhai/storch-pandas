@@ -38,7 +38,7 @@ object Timeseries {
     for (c <- 0 until df.size) {
       val column = new ListBuffer[V]() // df.length)
       for (r <- 0 until df.length) {
-        val windowFunc = f.apply(df.get(r, c))
+        val windowFunc = f.apply(df.getFromIndex(r, c))
         column.append(windowFunc.asInstanceOf[V])
       }
       data.append(column.toSeq)
@@ -46,7 +46,7 @@ object Timeseries {
     }
     new DataFrame[V](
       df.getIndex,
-      df.getColumns.asInstanceOf[mutable.Set[Any]],
+      df.getColumns.asInstanceOf[Seq[Any]],
       data.toList,
     )
   }

@@ -57,9 +57,9 @@ object Selection {
       blocks: BlockManager[V],
       selected: SparseBitSet,
   ): BlockManager[V] = {
-    val data = new ListBuffer[Seq[Any]]
+    val data = new ListBuffer[Seq[V]]
     for (c <- 0 until blocks.size()) {
-      val column = new ListBuffer[Any]() // selected.cardinality)
+      val column = new ListBuffer[V]() // selected.cardinality)
 //      selected.getCardinality
       var r = selected.nextSetBit(0)
       while (r >= 0) {
@@ -76,10 +76,10 @@ object Selection {
       rows: SparseBitSet,
       cols: SparseBitSet,
   ): BlockManager[V] = {
-    val data = new ListBuffer[Seq[Any]]
+    val data = new ListBuffer[Seq[V]]
     var c = cols.nextSetBit(0)
     while (c >= 0) {
-      val column = new ListBuffer[Any]() // rows.cardinality)
+      val column = new ListBuffer[V]() // rows.cardinality)
       var r = rows.nextSetBit(0)
       while (r >= 0) {
         column.append(blocks.get(c, r))

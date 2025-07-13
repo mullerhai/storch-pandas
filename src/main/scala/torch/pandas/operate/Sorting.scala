@@ -56,7 +56,7 @@ object Sorting {
       df: DataFrame[V],
       comparator: Comparator[Seq[V]],
   ): DataFrame[V] = {
-    val sorted = new DataFrame[V](df.getColumns)
+    val sorted = new DataFrame[V](df.getColumns.map(_.toString)*)
     val cmp = new Comparator[AnyRef]() {
       override def compare(r1: AnyRef, r2: AnyRef): Int = comparator
         .compare(df.row(r1), df.row(r2))

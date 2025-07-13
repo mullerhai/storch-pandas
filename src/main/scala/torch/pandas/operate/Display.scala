@@ -53,10 +53,10 @@ object Display {
       plotType: DataFrame.PlotType,
   ): C = {
     val panels = new ListBuffer[XChartPanel]
-    val numeric = df.numeric.fillna(0)
+    val numeric: DataFrame[Number] = df.numeric.fillna(0)
     val rows = Math.ceil(Math.sqrt(numeric.size)).toInt
     val cols = numeric.size / rows + 1
-    val xdata = new ListBuffer[Any]() // df.length)
+    var xdata = new ListBuffer[Any]() // df.length)
     val it = df.getIndex.iterator
     for (i <- 0 until df.length) {
       val value = if (it.hasNext) it.next else i
@@ -94,10 +94,12 @@ object Display {
       }
 
       for (col <- numeric.getColumns) {
+        println(s"xdata ${xdata.mkString(", ")}")
+//        val xdata2 = Array(1,2,3,4,5,6)
         val series = chart.addSeries(
           String.valueOf(col),
-          xdata.asInstanceOf[Array[Double]],
-          numeric.col(col).asInstanceOf[Array[Double]],
+          xdata.map(_.asInstanceOf[Int].toDouble).toArray, //.asInstanceOf[Array[Double]],
+          numeric.col(col).map(_.doubleValue()).toArray,
         )
         if (plotType eq PlotType.SCATTER_WITH_TREND) {
           addTrend(chart, series, xdata.toSeq)
@@ -123,7 +125,8 @@ object Display {
     })
 
   def show[V](df: DataFrame[V]): Unit = {
-    val columns = new ListBuffer[AnyRef]() // df.columns)
+    val columns = new ListBuffer[Any]() // df.columns)
+    columns.addAll(df.getColumns)
     val types = df.types
     SwingUtilities.invokeLater {
       new Runnable() {
@@ -134,7 +137,7 @@ object Display {
 
             override def getColumnCount: Int = df.size
 
-            override def getValueAt(row: Int, col: Int): V = df.get(row, col)
+            override def getValueAt(row: Int, col: Int): V = df.getFromIndex(row, col)
 
             override def getColumnName(col: Int): String = String
               .valueOf(columns(col))

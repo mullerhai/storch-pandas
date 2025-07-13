@@ -138,7 +138,7 @@ object Combining:
     }
 
     // Create the result DataFrame with the determined columns
-    val df = new DataFrame[V](initialColumns.toSet) // Convert Scala ListBuffer back to Java List
+    val df = new DataFrame[V](initialColumns.map(_.toString).toSeq*) // Convert Scala ListBuffer back to Java List
 
     // Populate the DataFrame based on the join type and maps
     val (primaryMap, secondaryMap) = how match {
@@ -294,12 +294,12 @@ object Combining:
       for (col <- 0 until dest.size) // Assuming size() is column count
         for (row <- 0 until dest.length) // Assuming length() is row count
           // Check if overwrite is allowed or if the destination cell is null
-          if (overwrite || dest.get(row, col) == null)
+          if (overwrite || dest.getFromIndex(row, col) == null)
             // Iterate through the other DataFrames
             for (other <- others)
               // Check if the other DataFrame has the corresponding cell
               if (col < other.size && row < other.length) {
-                val value = other.get(row, col)
+                val value = other.getFromIndex(row, col)
                 // If the value from the other DataFrame is not null, set it in dest and break
                 if (value != null) {
                   dest.set(row, col, value)
@@ -363,7 +363,7 @@ object Combining:
 
     // Create the combined DataFrame with the determined columns and total rows
     // Assuming DataFrame constructor takes Java List of columns and reshape takes rows, cols
-    val combined = new DataFrame[V](newcols.toSet)
+    val combined = new DataFrame[V](newcols.map(_.toString) *)
       .reshape(totalRows, newcols.size)
 
     // Populate the combined DataFrame
@@ -382,7 +382,7 @@ object Combining:
         if (newcIndex >= 0)
           // Copy data from the current DataFrame to the combined DataFrame
           for (r <- 0 until df.length) { // Iterate through rows of the current DataFrame
-            val value = df.get(r, cIndex) // Get value from current DataFrame
+            val value = df.getFromIndex(r, cIndex) // Get value from current DataFrame
             combined.set(offset + r, newcIndex, value) // Set value in combined DataFrame at the correct offset and column
           }
       }

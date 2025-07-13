@@ -177,7 +177,7 @@ object Aggregation {
     for (col <- df.getColumns)
 
       for (row <- df.getIndex) {
-        val value = df.get(row, col)
+        val value = df.getFromIndex(row.asInstanceOf[Int], col.asInstanceOf[Int])
         if (value.isInstanceOf[StatisticalSummary]) {
           if (!desc.getColumns.contains(col)) {
             desc.add(col)

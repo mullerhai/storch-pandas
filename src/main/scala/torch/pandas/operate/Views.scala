@@ -39,13 +39,20 @@ object Views {
     override def size: Int = if (transpose) df.length else df.size
   }
 
+  //util.AbstractList[V]
   class SeriesListView[V](
       val df: DataFrame[V],
       val index: Int,
       val transpose: Boolean,
   ) extends util.AbstractList[V] {
     override def get(index: Int): V =
-      if (transpose) df.get(index, this.index) else df.get(this.index, index)
+      if (transpose) {
+        println("Class Views : Transpose get: " + index + ", " + this.index)
+        df.getFromIndex(index, this.index)
+      } else {
+        println("Class Views : Normal get: index num " + index + ",  index map " + this.index)
+        df.getFromIndex(this.index, index)
+      }
 
     override def size: Int = if (transpose) df.length else df.size
   }
@@ -80,8 +87,8 @@ object Views {
                 override def getKey: AnyRef = return key.asInstanceOf[AnyRef]
 
                 override def getValue: V =
-                  return if (transpose) df.get(value, index)
-                  else df.get(index, value)
+                  return if (transpose) df.getFromIndex(value, index)
+                  else df.getFromIndex(index, value)
 
                 override def setValue(value: V): V =
                   throw new UnsupportedOperationException
@@ -116,7 +123,7 @@ object Views {
   ) extends util.AbstractList[U] {
     override def get(index: Int): U = {
       val value =
-        if (transpose) df.get(index, this.index) else df.get(this.index, index)
+        if (transpose) df.getFromIndex(index, this.index) else df.getFromIndex(this.index, index)
       transform.apply(value.asInstanceOf[V])
     }
 
@@ -125,7 +132,7 @@ object Views {
 
   class FlatView[V](val df: DataFrame[V]) extends util.AbstractList[V] {
     override def get(index: Int): V = df
-      .get(index % df.length, index / df.length)
+      .getFromIndex(index % df.length, index / df.length)
 
     override def size: Int = df.size * df.length
   }

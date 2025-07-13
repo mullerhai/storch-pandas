@@ -20,14 +20,12 @@ package torch.pandas.operate.adapter
 import java.io.IOException
 import java.lang.reflect.Method
 import java.util
-
 import scala.collection.Set as KeySet
 import scala.collection.mutable
 import scala.collection.mutable.LinkedHashMap
 import scala.collection.mutable.LinkedHashSet
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
-
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Function
 import org.mozilla.javascript.NativeArray
@@ -35,7 +33,6 @@ import org.mozilla.javascript.NativeJavaObject
 import org.mozilla.javascript.ScriptRuntime
 import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.ScriptableObject
-
 import torch.DataFrame
 import torch.DataFrame.Aggregate
 import torch.DataFrame.JoinType
@@ -44,6 +41,8 @@ import torch.DataFrame.PlotType
 import torch.DataFrame.Predicate
 import torch.DataFrame.RowFunction
 import torch.pandas.operate.Grouping
+
+import scala.language.postfixOps
 /*
  * there are basically two options for assisting in method resolution
  * from javascript:
@@ -81,22 +80,23 @@ object DataFrameAdapter {
         data.append(asList(array.get(ids(i).asInstanceOf[Int], null)))
         i += 1
       }
-      val x1 = asList(args(0)).asInstanceOf[KeySet[Any]]
-      val x2 = asList(args(1)).asInstanceOf[mutable.Set[Any]]
+      val x1 = asList(args(0)).asInstanceOf[Seq[Any]]
+      val x2 = asList(args(1)).asInstanceOf[Seq[Any]]
       val x3: List[Seq[AnyRef]] = data.toList // map(_.asInstanceOf[Seq[_.asInstanceOf[AnyRef]]]).toList
       val df = new DataFrame[AnyRef](x1, x2, x3)
       return new DataFrameAdapter(df)
     } else if (args.length == 2 && args(0).isInstanceOf[NativeArray])
       return new DataFrameAdapter(new DataFrame[AnyRef](
-        asList(args(0)).asInstanceOf[KeySet[Any]],
-        asList(args(1)).asInstanceOf[mutable.Set[Any]],
+        asList(args(0)).asInstanceOf[Seq[Any]],
+        asList(args(1)).asInstanceOf[Seq[Any]],
       ))
-    else if (args.length == 1 && args(0).isInstanceOf[NativeArray])
-      return new DataFrameAdapter(new DataFrame[AnyRef](asList(args(0)).toSet))
-    else if (args.length > 0) {
+    else if (args.length == 1 && args(0).isInstanceOf[NativeArray]) {
+      val df = new DataFrame[AnyRef](asList(args(0)).map(_.toString)*)
+      return new DataFrameAdapter(df)
+    } else if (args.length > 0) {
       val columns = new Array[String](args.length)
       for (i <- 0 until args.length) columns(i) = Context.toString(args(i))
-      return new DataFrameAdapter(new DataFrame[AnyRef](columns.toSet))
+      return new DataFrameAdapter(new DataFrame[AnyRef](columns.toSeq*))
     }
     new DataFrameAdapter(new DataFrame[AnyRef])
   }
@@ -129,7 +129,7 @@ object DataFrameAdapter {
       func: Function,
   ) = {
     val cdf = cast(scriptable).df
-    val arg = cdf.drop(args.map(_.asInstanceOf[Int])*)
+    val arg = cdf.drop(args.map(_.asInstanceOf[Int]))
     new DataFrameAdapter(scriptable, arg)
   }
 
@@ -140,7 +140,7 @@ object DataFrameAdapter {
       func: Function,
   ) = new DataFrameAdapter(
     scriptObject,
-    cast(scriptObject).df.retain(args.toSeq.map(_.asInstanceOf[Int])),
+    cast(scriptObject).df.retain(args.toSeq.map(_.asInstanceOf[String])),
   )
 
   def jsFunction_reindex(
@@ -605,11 +605,11 @@ class DataFrameAdapter extends ScriptableObject {
 
   def jsFunction_isEmpty: Boolean = df.isEmpty
 
-  def jsFunction_index: Set[Any] = df.getIndex
+  def jsFunction_index: Seq[Any] = df.getIndex
 
-  def jsFunction_columns: Set[Any] = df.getColumns
+  def jsFunction_columns: Seq[Any] = df.getColumns
 
-  def jsFunction_get(row: Int, col: Int): AnyRef = df.get(row, col)
+  def jsFunction_get(row: Int, col: Int): AnyRef = df.getFromIndex(row, col)
 
   def jsFunction_slice(rowStart: Int, rowEnd: Int, colStart: Int, colEnd: Int) =
     new DataFrameAdapter(this, df.slice(rowStart, rowEnd, colStart, colEnd))

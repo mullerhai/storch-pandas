@@ -22,6 +22,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util
 //import java.lang.reflect.Array
 import java.sql.Connection
 import java.sql.PreparedStatement
@@ -441,14 +442,14 @@ class DataFrame[V](
     new Grouping(),
   )
 
-  def this(columns: KeySet[Any]) = this(
-    new Index(mutable.Set.empty, 0),
-    new Index(columns, columns.size),
-    new BlockManager[V](List.empty),
-    new Grouping(),
-  )
-
-  def this(index: KeySet[Any], columns: mutable.Set[Any]) = this(
+//  def this(columns: Seq[Any]) = this(
+//    new Index(mutable.Set.empty, 0),
+//    new Index(columns, columns.size),
+//    new BlockManager[V](List.empty),
+//    new Grouping(),
+//  )
+// columns: mutable.Seq[Any]
+  def this(index: Seq[Any], columns: Seq[Any]) = this(
     new Index(index, index.size),
     new Index(columns, columns.size),
     new operate.BlockManager[V](List.empty),
@@ -463,9 +464,9 @@ class DataFrame[V](
   )
 
   def this(
-      index: KeySet[Any],
-      columns: mutable.Set[Any],
-      data: List[Seq[Any]],
+      index: Seq[Any],
+      columns: Seq[Any], //mutable.Seq[Any],
+      data: List[Seq[V]],
   ) = {
     this()
     val mgr = new operate.BlockManager[V](data)
@@ -643,8 +644,20 @@ class DataFrame[V](
     * @return
     *   a shallow copy of the data frame with the columns removed
     */
-//  def drop(cols: AnyRef*): DataFrame[V] = drop(columns.indices(cols))
+  def drop(cols: AnyRef*): DataFrame[V] = {
+    println(s"Class DataFrame will drop cols: ->  ${cols.mkString(", ")}")
+    val dropCols = columns.indices(cols)
+    dropWithIntCols(dropCols,indet = true)
+  }
 
+  def dropWithIntCols(cols: Seq[Int], indet: Boolean = true): DataFrame[V] = {
+    val colNames = columns.names.toList
+    val toDrop = cols.toSeq.map(colNames(_))
+    println("dataframe.drop cols name : " + toDrop.mkString(", "))
+    val newColNames = colNames.filterNot(toDrop.contains)
+    val keep = newColNames.map(col) //.map(_.asScala.toSeq)
+    new DataFrame[V](index.names, Seq(newColNames *), keep) //mutable.Seq(newColNames*)
+  }
   /** Create a new data frame by leaving out the specified columns.
     *
     * <pre> {@code > DataFrame<Object> df = new DataFrame<>("name", "value",
@@ -655,12 +668,13 @@ class DataFrame[V](
     * @return
     *   a shallow copy of the data frame with the columns removed
     */
-  def drop(cols: Int*): DataFrame[V] = {
+  def drop(cols: Seq[Int], indet:Boolean = true): DataFrame[V] = {
     val colNames = columns.names.toList
     val toDrop = cols.toSeq.map(colNames(_))
+    println("dataframe.drop cols name : " + toDrop.mkString(", "))
     val newColNames = colNames.filterNot(toDrop.contains)
-    val keep = newColNames.map(col)
-    new DataFrame[V](index.names, mutable.Set(newColNames*), keep)
+    val keep = newColNames.map(col) //.map(_.asScala.toSeq)
+    new DataFrame[V](index.names, Seq(newColNames*), keep)  //mutable.Seq(newColNames*)
   }
 //  def drop(cols: Int*): DataFrame[V] = {
 //    val colnames = new  ListBuffer[AnyRef](columns.names)
@@ -712,8 +726,13 @@ class DataFrame[V](
     *   the columns to include in the new data frame
     * @return
     *   a new data frame containing only the specified columns
+   *   name '[Ljava.lang.String;@3c6d2f1' not in index indexMap: (category,0),(name,
     */
-//  def retain(cols: AnyRef*): DataFrame[V] = retain(columns.indices(cols))
+  def retain(cols: Seq[String]): DataFrame[V] = {
+    println(s"dataframe retain cols ${cols.length} cols ${cols.mkString(",")}")
+    val indicesIndex = columns.indices(cols).toSeq
+    retains(indicesIndex)
+  }
 
 //  def retain(cols: Any*): DataFrame[V] = retain(columns.indices(cols))
 
@@ -727,10 +746,11 @@ class DataFrame[V](
     * @return
     *   a new data frame containing only the specified columns
     */
-  def retain(cols: Seq[Int]): DataFrame[V] = {
+  def retains(cols: Seq[Int]): DataFrame[V] = {
     val keep = cols.toSet
     val toDrop = (0 until size).filterNot(keep.contains)
-    drop(toDrop*)
+    println(s"dataframe retain keep ${keep.mkString(",")} toDrop ${toDrop.length} cols ${cols.mkString(",")}")
+    dropWithIntCols(toDrop.toSeq)
   }
 //  def retain(cols: Int*): DataFrame[V] = {
 //    val keep = new HashSet[Int](java.util.Arrays.asList(cols))
@@ -763,7 +783,7 @@ class DataFrame[V](
     */
   def reindex(col: Int, drop: Boolean): DataFrame[V] = {
     val df = Index.reindex(this, col)
-    if (drop) df.drop(col) else df
+    if (drop) df.drop(Seq(col)) else df
   }
 
   /** Re-index the rows of the data frame using the specified column indices,
@@ -783,7 +803,7 @@ class DataFrame[V](
     */
   def reindex(cols: Array[Int], drop: Boolean): DataFrame[V] = {
     val df = Index.reindex(this, cols*)
-    if (drop) df.drop(cols*) else df
+    if (drop) df.drop(cols.toSeq) else df
   }
 
   /** Re-index the rows of the data frame using the specified column indices and
@@ -1206,7 +1226,7 @@ class DataFrame[V](
     * @return
     *   the index names
     */
-  def getIndex: Set[Any] = index.names.toSet
+  def getIndex: Seq[Any] = index.names.toSeq
 
   /** Return the column names for the data frame.
     *
@@ -1216,7 +1236,7 @@ class DataFrame[V](
     * @return
     *   the column names
     */
-  def getColumns: Set[Any] = columns.names.toSet
+  def getColumns: Seq[Any] = columns.names.toSeq
 
   /** Return the value located by the (row, column) names.
     *
@@ -1232,7 +1252,15 @@ class DataFrame[V](
     * @return
     *   the value
     */
-  def get(row: Any, col: Any): V = get(index.get(row), columns.get(col))
+  def get(row: AnyRef, col: AnyRef): V = {
+    println("DataFrame.get: row class " + row.getClass.getName + ", col class " + col.getClass.getName)
+    val rows  = index.get(row)
+    val colz =  columns.get(col)
+//    val view = data.get(colz.toInt, rows.toInt)
+//    view
+//    get(rows.toInt,colz.toInt)
+    getFromIndex(index.get(row).asInstanceOf[Int], columns.get(col).asInstanceOf[Int])
+  }
 
   /** Return the value located by the (row, column) coordinates.
     *
@@ -1248,7 +1276,7 @@ class DataFrame[V](
     * @return
     *   the value
     */
-  def get(row: Int, col: Int): Any = data.get(col, row)
+  def getFromIndex(row: Int, col: Int): V = data.get(col, row)
 
   def slice(rowStart: AnyRef, rowEnd: AnyRef): DataFrame[V] =
     slice(index.get(rowStart), index.get(rowEnd), 0, size)
@@ -1312,7 +1340,7 @@ class DataFrame[V](
     * @param value
     *   the new value
     */
-  def set(row: Int, col: Int, value: Any): Unit = data.set(value, col, row)
+  def set(row: Int, col: Int, value: V): Unit = data.set(value, col, row)
 
   /** Return a data frame column as a list.
     *
@@ -1329,7 +1357,7 @@ class DataFrame[V](
     */
 //  def col(column: Int):  Seq[V] = col(columns.get(column))
 
-  def col(column: Any): Seq[V] = col(columns.get(column))
+  def col(column: Any): Seq[V] = col_with_view(columns.get(column)).asScala.toSeq
 
   /** Return a data frame column as a list.
     *
@@ -1359,7 +1387,13 @@ class DataFrame[V](
     * @return
     *   the list of values
     */
-  def row(row: AnyRef): Seq[V] = row_index(index.get(row)).asScala.toSeq
+  def row(row: AnyRef): Seq[V] = {
+    val indexNum = index.get(row)
+    val view = new Views.SeriesListView[V](this, indexNum, false)
+    view.asScala.toSeq
+//    val indexValueSeq = row_index(indexNum).asScala
+//    indexValueSeq.toSeq
+  }
 
   /** Return a data frame row as a list.
     *
@@ -1373,7 +1407,12 @@ class DataFrame[V](
     * @return
     *   the list of values
     */
-  def row_index(row: Int) = new Views.SeriesListView[V](this, row, false)
+  def row_index(row: Int) = {
+    println(s"Dataframe row_index method row: ${row}")
+    val view = new Views.SeriesListView[V](this, row, false)
+    println(s"Dataframe row_index method view: ${view}")
+    view
+  }
 
   /** Select a subset of the data frame using a predicate function.
     *
@@ -1488,10 +1527,11 @@ class DataFrame[V](
     *
     * @return
     *   a new data frame with the rows and columns transposed
+   *   //index.names.asInstanceOf[mutable.Seq[Any]],
     */
   def transpose = new DataFrame[V](
     columns.names,
-    index.names.asInstanceOf[mutable.Set[Any]],
+    index.names,
     new Views.ListView[V](this, true).asScala.map(_.asScala.toSeq).toList,
   )
 
@@ -1508,20 +1548,19 @@ class DataFrame[V](
     *   the function to apply
     * @return
     *   a new data frame with the function results
+   *   //columns.names.asInstanceOf[mutable.Seq[Any]],
     */
   def apply[U](function: DataFrame.Function[V, U]) = new DataFrame[U](
     index.names,
-    columns.names.asInstanceOf[mutable.Set[Any]],
+    columns.names,
     new Views.TransformedView[V, U](this, function, false).asScala
       .map(_.asScala.toSeq).toList,
   )
 
   def transform[U](transform: DataFrame.RowFunction[V, U]): DataFrame[U] = {
-    val transformed = new DataFrame[U](columns.names)
+    val transformed = new DataFrame[U](columns.names.map(_.toString)*)
     val it = this.getIndex.iterator
-
     for (row <- this)
-
       for (trans <- transform.apply(row)) transformed
         .append(if (it.hasNext) it.next else transformed.length, trans)
     transformed
@@ -1645,7 +1684,7 @@ class DataFrame[V](
   def toArray[U](array: Array[Array[U]]): Array[Array[U]] = {
     if (array.length >= size && array.length > 0 && array(0).length >= length)
       for (c <- 0 until size)
-        for (r <- 0 until length) array(r)(c) = get(r, c).asInstanceOf[U]
+        for (r <- 0 until length) array(r)(c) = getFromIndex(r, c).asInstanceOf[U]
     toArray(array.getClass).asInstanceOf[Array[Array[U]]]
   }
 
@@ -1691,7 +1730,7 @@ class DataFrame[V](
         val innerArray = java.lang.reflect.Array.get(array, r) // Get the inner 1D array for the row
         for (c <- 0 until numCols) // Iterate columns
           // Assuming get(r, c) gets value at row r, col c
-          java.lang.reflect.Array.set(innerArray, c, get(r, c))
+          java.lang.reflect.Array.set(innerArray, c, getFromIndex(r, c))
         // Set the modified inner array back (might be redundant for Object arrays but kept for fidelity)
         java.lang.reflect.Array.set(array, r, innerArray)
       }
@@ -2024,8 +2063,10 @@ class DataFrame[V](
   def numeric: DataFrame[Number] = {
     val numeric = Inspection.numeric(this)
     val keep = Selection.select(columns, numeric).names
-    val keepArray = keep.toSeq.map(_.asInstanceOf[Int])
-    retain(keepArray).cast(classOf[Number])
+    val keepArray = Array("value","version","age","score") // keep.toSeq//.map(_.asInstanceOf[String])
+    println(s"dataframe keep elect names ->: ${keep.mkString(", ")} numeric keepArray ${keepArray.length} cols ${keepArray.mkString(",")}")
+//    retain(keepArray).cast(classOf[Number])
+    retain(keep.map(_.toString)).cast(classOf[Number])
   }
 
   /** Return a data frame containing only columns with non-numeric data.
@@ -2051,7 +2092,7 @@ class DataFrame[V](
     val keepArray = scalaKeepSet.toSeq.map(_.asInstanceOf[Int])
 
     // Retain the columns specified by the array of names
-    retain(keepArray)
+    retains(keepArray)
   }
 
   /** Return an iterator over the rows of the data frame. Also used implicitly
@@ -2135,7 +2176,7 @@ class DataFrame[V](
   def unique(cols: AnyRef*): DataFrame[V] = unique(columns.indices(cols))
 
   def unique_index(cols: Int*): DataFrame[V] = {
-    val unique = new DataFrame[V](columns.names)
+    val unique = new DataFrame[V](columns.names.map(_.toString)*)
     val seen = new mutable.HashSet[Seq[Any]]
     val key = new ListBuffer[Any]() // cols.length)
     val len = length

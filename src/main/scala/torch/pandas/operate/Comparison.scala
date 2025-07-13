@@ -20,8 +20,9 @@ package torch.pandas.operate
 import scala.collection.mutable.LinkedHashMap
 import scala.collection.mutable.LinkedHashSet
 import scala.collection.mutable.ListBuffer
-
 import torch.DataFrame
+
+import scala.collection.mutable
 
 object Comparison {
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] = {
@@ -34,14 +35,16 @@ object Comparison {
     cols.addAll(df1.getColumns)
     cols.addAll(df2.getColumns)
     // 2. reshape left to contain all rows and columns
-    val left = df1.reshape(rows.toSeq, cols.toSeq)
+    val rowSeq = rows.toSeq
+    val colsSeq = cols.toSeq
+    val left = df1.reshape(rowSeq, colsSeq)
     // 3. reshape right to contain all rows and columns
-    val right = df2.reshape(rows.toSeq, cols.toSeq)
-    val comp = new DataFrame[String](rows, cols)
+    val right = df2.reshape(rowSeq, colsSeq)
+    val comp = new DataFrame[String](rowSeq, colsSeq.asInstanceOf[Seq[Any]])
     // 4. perform comparison cell by cell
     for (c <- 0 until left.size) for (r <- 0 until left.length) {
-      val lval = left.get(r, c)
-      val rval = right.get(r, c)
+      val lval = left.getFromIndex(r, c)
+      val rval = right.getFromIndex(r, c)
       if (lval == null && rval == null)
         // equal but null
         comp.set(r, c, "")

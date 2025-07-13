@@ -54,8 +54,8 @@ object Index {
     val viewData = new Views.ListView[V](df, false).asScala
       .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
-      transformed.col(0).asInstanceOf[KeySet[Any]],
-      df.getColumns.asInstanceOf[mutable.Set[Any]],
+      transformed.col(0).asInstanceOf[Seq[Any]],
+      df.getColumns.asInstanceOf[Seq[Any]],
       viewData,
     )
   }
@@ -83,8 +83,8 @@ object Index {
     val viewData = new Views.ListView[V](df, false).asScala
       .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
-      index.asInstanceOf[KeySet[Any]],
-      df.getColumns.asInstanceOf[mutable.Set[Any]],
+      index.asInstanceOf[Seq[Any]],
+      df.getColumns.asInstanceOf[Seq[Any]],
       viewData,
     )
   }
@@ -145,10 +145,12 @@ class Index(
   def set(name: Any, value: Int): Unit = indexMap.put(name, value)
 
   def get(name: Any): Int = {
-    val i = indexMap.get(name)
-    if (i == null)
-      throw new IllegalArgumentException("name '" + name + "' not in index")
-    i.get
+    val i = indexMap.get(name) //.get.asInstanceOf[Int]
+    if (i == null || !i.isDefined)
+      throw new IllegalArgumentException("name '" + name + "' not in index indexMap: " + indexMap.toSeq.mkString(",") + "")
+    val index = i.get
+    println(s"Class Index col or row name ${name}, index ${index}")
+    index
   }
 
   def rename(names: Map[Any, AnyRef]): Unit = {
@@ -162,14 +164,16 @@ class Index(
     indexMap ++= idx
   }
 
-  def names = indexMap.keySet
+  def names = indexMap.toSeq.map(_._1).toSeq
 
   def indices(names: Array[AnyRef]): Array[Int] = indices(names.toSeq)
 
   def indices(names: Seq[AnyRef]): Array[Int] = {
     val size = names.size
     val indices = new Array[Int](size)
-    for (i <- 0 until size) indices(i) = get(names(i))
+    for (i <- 0 until size)
+      indices(i) = get(names(i))
     indices
+//    Array(3,4,5)
   }
 }

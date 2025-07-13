@@ -18,6 +18,7 @@
 package torch.pandas.operate
 
 import scala.collection.Set as KeySet
+import scala.language.postfixOps
 //import torch.pandas.operate.Transforms.CumulativeFunction
 import scala.collection.mutable
 import scala.collection.mutable.LinkedHashMap
@@ -96,7 +97,7 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
         val column = mutable.ListBuffer[V]()
         groups.foreach { case (_, rows) =>
           val r = rows.nextSetBit(0)
-          column.addOne(df.get(r, c))
+          column.addOne(df.getFromIndex(r, c))
         }
         grouped.addOne(column)
         newcols.addOne(names(c))
@@ -116,7 +117,7 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
               .asInstanceOf[V],
           )
           else for (r <- 0 until df.length) column.addOne(
-            function.asInstanceOf[Function[V, V]].apply(df.get(r, c))
+            function.asInstanceOf[Function[V, V]].apply(df.getFromIndex(r, c))
               .asInstanceOf[V],
           )
         catch { case _: ClassCastException => () }
@@ -129,7 +130,7 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
             val values = mutable.ListBuffer[V]()
             var r = rows.nextSetBit(0)
             while (r >= 0) {
-              values.addOne(df.get(r, c))
+              values.addOne(df.getFromIndex(r, c))
               r = rows.nextSetBit(r + 1)
             }
             column.addOne(
@@ -140,7 +141,7 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
             var r = rows.nextSetBit(0)
             while (r >= 0) {
               column.addOne(
-                function.asInstanceOf[Function[V, V]].apply(df.get(r, c))
+                function.asInstanceOf[Function[V, V]].apply(df.getFromIndex(r, c))
                   .asInstanceOf[V],
               )
               r = rows.nextSetBit(r + 1)
@@ -163,8 +164,8 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
     )
 
     new DataFrame[V](
-      index.asInstanceOf[KeySet[Any]],
-      newcols.asInstanceOf[mutable.Set[Any]],
+      index.asInstanceOf[Seq[Any]],
+      newcols.asInstanceOf[Seq[Any]],
       grouped.map(_.toSeq).toList,
     )
   }
