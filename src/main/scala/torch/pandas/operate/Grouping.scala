@@ -102,7 +102,7 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
         grouped.addOne(column)
         newcols.addOne(names(c))
       } else {
-        grouped.addOne(df.col(c).to(mutable.ListBuffer))
+        grouped.addOne(df.colInt(c).to(mutable.ListBuffer))
         newcols.addOne(names(c))
       },
     )
@@ -112,11 +112,15 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
       val column = mutable.ListBuffer[V]()
       if (groups.isEmpty) {
         try
-          if (function.isInstanceOf[Aggregate[?, ?]]) column.addOne(
-            function.asInstanceOf[Aggregate[V, V]].apply(df.col(c).toList)
+          if (function.isInstanceOf[Aggregate[?, ?]]) {
+            println("here if")
+            column.addOne(
+            function.asInstanceOf[Aggregate[V, V]].apply(df.colInt(c).toList)
               .asInstanceOf[V],
           )
-          else for (r <- 0 until df.length) column.addOne(
+          } else for (r <- 0 until df.length)
+            println("here else")
+            column.addOne(
             function.asInstanceOf[Function[V, V]].apply(df.getFromIndex(r, c))
               .asInstanceOf[V],
           )
@@ -160,12 +164,12 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
     }
 
     if (newcols.size <= columns.size) throw new IllegalArgumentException(
-      s"no results for aggregate function ${function.getClass.getSimpleName}",
+      s"no results for aggregate function ${function.getClass.getSimpleName}, newcols.size ${newcols.size} | columns.size ${columns.size}",
     )
 
     new DataFrame[V](
-      index.asInstanceOf[Seq[Any]],
-      newcols.asInstanceOf[Seq[Any]],
+      index.toSeq,//.asInstanceOf[Seq[Any]],
+      newcols.toSeq,//.asInstanceOf[Seq[Any]],
       grouped.map(_.toSeq).toList,
     )
   }

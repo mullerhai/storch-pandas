@@ -47,10 +47,10 @@ object Views {
   ) extends util.AbstractList[V] {
     override def get(index: Int): V =
       if (transpose) {
-        println("Class Views : Transpose get: " + index + ", " + this.index)
+//        println("Class Views : Transpose get: " + index + ", " + this.index)
         df.getFromIndex(index, this.index)
       } else {
-        println("Class Views : Normal get: index num " + index + ",  index map " + this.index)
+//        println("Class Views : Normal get: index num " + index + ",  index map " + this.index)
         df.getFromIndex(this.index, index)
       }
 

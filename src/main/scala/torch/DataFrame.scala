@@ -655,7 +655,7 @@ class DataFrame[V](
     val toDrop = cols.toSeq.map(colNames(_))
     println("dataframe.drop cols name : " + toDrop.mkString(", "))
     val newColNames = colNames.filterNot(toDrop.contains)
-    val keep = newColNames.map(col) //.map(_.asScala.toSeq)
+    val keep = newColNames.map(ele => col(ele.toString)) //.map(_.asScala.toSeq)
     new DataFrame[V](index.names, Seq(newColNames *), keep) //mutable.Seq(newColNames*)
   }
   /** Create a new data frame by leaving out the specified columns.
@@ -673,7 +673,7 @@ class DataFrame[V](
     val toDrop = cols.toSeq.map(colNames(_))
     println("dataframe.drop cols name : " + toDrop.mkString(", "))
     val newColNames = colNames.filterNot(toDrop.contains)
-    val keep = newColNames.map(col) //.map(_.asScala.toSeq)
+    val keep = newColNames.map(ele => col(ele.toString)) //.map(_.asScala.toSeq)
     new DataFrame[V](index.names, Seq(newColNames*), keep)  //mutable.Seq(newColNames*)
   }
 //  def drop(cols: Int*): DataFrame[V] = {
@@ -1357,7 +1357,12 @@ class DataFrame[V](
     */
 //  def col(column: Int):  Seq[V] = col(columns.get(column))
 
-  def col(column: Any): Seq[V] = col_with_view(columns.get(column)).asScala.toSeq
+  def col(column: AnyRef): Seq[V] = col_with_view(columns.get(column)).asScala.toSeq
+
+  def colInt(column: Int, index:Boolean = true) =
+    println("DataFrame.col: column index:  " + column)
+    val views = new Views.SeriesListView[V](this, column, true)
+    views.asScala.toSeq
 
   /** Return a data frame column as a list.
     *
@@ -2084,7 +2089,7 @@ class DataFrame[V](
 //    retain(keep.toArray(new Array[AnyRef](keep.size)))
 //  }
 
-  def nonnumeric(): DataFrame[V] = {
+  def nonnumeric: DataFrame[V] = {
     // Call the nonnumeric method from the Inspection object/class
     val nonnumeric: SparseBitSet = Inspection.nonnumeric(this)
     val scalaKeepSet = Selection.select(columns, nonnumeric).names

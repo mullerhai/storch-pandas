@@ -114,7 +114,7 @@ object Pivoting {
         for (c <- values.keySet) {
           val colName = name(colEntry._1, colNames(c), values)
           val colData = rowData.get(colName)
-          colData.++(colEntry._2.col(c))
+          colData.++(colEntry._2.colInt(c))
         }
       }
     }

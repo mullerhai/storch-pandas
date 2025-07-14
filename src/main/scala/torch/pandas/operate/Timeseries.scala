@@ -89,7 +89,7 @@ object Timeseries {
   }
 
   def diff[V](df: DataFrame[V], period: Int): DataFrame[V] = {
-    val nonnumeric = df.nonnumeric()
+    val nonnumeric = df.nonnumeric
     @SuppressWarnings(Array("unchecked"))
     val diff = df.numeric.apply(new Timeseries.WindowFunction[Number](
       new Timeseries.DiscreteDifferenceFunction,
@@ -99,7 +99,7 @@ object Timeseries {
   }
 
   def percentChange[V](df: DataFrame[V], period: Int): DataFrame[V] = {
-    val nonnumeric = df.nonnumeric()
+    val nonnumeric = df.nonnumeric
     @SuppressWarnings(Array("unchecked"))
     val diff = df.numeric.apply(new Timeseries.WindowFunction[Number](
       new Timeseries.PercentChangeFunction,

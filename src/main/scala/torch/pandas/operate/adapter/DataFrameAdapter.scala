@@ -617,7 +617,7 @@ class DataFrameAdapter extends ScriptableObject {
   def jsFunction_set(row: Int, col: Int, value: Scriptable): Unit = df
     .set(row, col, Context.jsToJava(value, classOf[AnyRef]))
 
-  def jsFunction_col(column: Int): Seq[AnyRef] = df.col(column)
+  def jsFunction_col(column: Int): Seq[AnyRef] = df.colInt(column)
 
   def jsFunction_row(row: Int): Seq[AnyRef] = df.row_index(row).asScala.toSeq
 
@@ -702,7 +702,7 @@ class DataFrameAdapter extends ScriptableObject {
   def jsFunction_numeric =
     new DataFrameAdapter(this, df.numeric.cast(classOf[AnyRef]))
 
-  def jsFunction_nonnumeric = new DataFrameAdapter(this, df.nonnumeric())
+  def jsFunction_nonnumeric = new DataFrameAdapter(this, df.nonnumeric)
 
   def jsFunction_map(key: AnyRef, value: AnyRef): LinkedHashMap[Any, Seq[Any]] =
     df.map(key, value)

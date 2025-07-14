@@ -254,8 +254,8 @@ object Combining:
       how: JoinType,
   ): DataFrame[V] = {
     // Get non-numeric columns as Scala Sets
-    val leftNonNumericCols = left.nonnumeric().getColumns.toSet
-    val rightNonNumericCols = right.nonnumeric().getColumns.toSet
+    val leftNonNumericCols = left.nonnumeric.getColumns.toSet
+    val rightNonNumericCols = right.nonnumeric.getColumns.toSet
 
     // Find the intersection of non-numeric columns
     val intersection = leftNonNumericCols.intersect(rightNonNumericCols)

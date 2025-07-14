@@ -60,20 +60,23 @@ object Display {
     val it = df.getIndex.iterator
     for (i <- 0 until df.length) {
       val value = if (it.hasNext) it.next else i
-      if (value.isInstanceOf[Number] || value.isInstanceOf[Date]) xdata
-        .append(value)
-      else if (PlotType.BAR == plotType) xdata.append(String.valueOf(value))
-      else xdata.append(i)
+      if (value.isInstanceOf[Number] || value.isInstanceOf[Date])
+        xdata.append(value)
+      else if (PlotType.BAR == plotType) {
+        println(s"xdata ${xdata.mkString(", ")} |-> value ${value} |-> value str ${String.valueOf(value)}")
+        xdata.append(String.valueOf(value))
+      } else xdata.append(i)
     }
     if (Set(PlotType.GRID, PlotType.GRID_WITH_TREND).contains(plotType))
 
       for (col <- numeric.getColumns) {
         val chart = new ChartBuilder().chartType(chartType(plotType))
           .width(800 / cols).height(800 / cols).title(String.valueOf(col)).build
+        val numericCol = numeric.col(col.toString).map(_.doubleValue()).toArray
         val series = chart.addSeries(
           String.valueOf(col),
-          xdata.asInstanceOf[Array[Double]],
-          numeric.col(col).asInstanceOf[Array[Double]],
+          xdata.map(_.asInstanceOf[Int]*1.0d).toArray,//.asInstanceOf[Array[Double]],
+          numericCol, //numeric.col(col).map(_.asInstanceOf[Int]*1.0d).toArray.asInstanceOf[Array[Double]],
         )
         if (plotType eq PlotType.GRID_WITH_TREND) {
           addTrend(chart, series, xdata.toSeq)
@@ -95,14 +98,14 @@ object Display {
 
       for (col <- numeric.getColumns) {
         println(s"xdata ${xdata.mkString(", ")}")
-//        val xdata2 = Array(1,2,3,4,5,6)
+        val xdata2 = Array(1,2,3,4,5,6)
         val series = chart.addSeries(
           String.valueOf(col),
-          xdata.map(_.asInstanceOf[Int].toDouble).toArray, //.asInstanceOf[Array[Double]],
-          numeric.col(col).map(_.doubleValue()).toArray,
+          xdata2.map(_.asInstanceOf[Int].toDouble).toArray, //.asInstanceOf[Array[Double]],
+          numeric.col(col.toString).map(_.doubleValue()).toArray,
         )
         if (plotType eq PlotType.SCATTER_WITH_TREND) {
-          addTrend(chart, series, xdata.toSeq)
+          addTrend(chart, series, xdata2.toSeq)
           series.setLineStyle(SeriesLineStyle.NONE)
         }
       }
@@ -245,8 +248,8 @@ object Display {
     val mc = series.getMarkerColor
     val c = new Color(mc.getRed, mc.getGreen, mc.getBlue, 0x60)
     val x2: Array[Double] = Array(
-      xdata(0).asInstanceOf[Double],
-      xdata(xdata.size - 1).asInstanceOf[Double],
+      xdata(0).asInstanceOf[Int]*1.0d,
+      xdata(xdata.size - 1).asInstanceOf[Int]*1.0d,
     )
     val x3 = Array(model.predict(0), model.predict(xdata.size - 1))
     val trend = chart.addSeries(series.getName + " (trend)", x2, x3)

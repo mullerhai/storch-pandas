@@ -54,7 +54,7 @@ object Index {
     val viewData = new Views.ListView[V](df, false).asScala
       .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
-      transformed.col(0).asInstanceOf[Seq[Any]],
+      transformed.colInt(0).asInstanceOf[Seq[Any]],
       df.getColumns.asInstanceOf[Seq[Any]],
       viewData,
     )

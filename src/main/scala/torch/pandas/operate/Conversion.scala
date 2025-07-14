@@ -410,7 +410,7 @@ object Conversion:
     // Now convert Nominals (String columns) to dummy variables
     // Keep all others as is
     for (columnIdx <- 0 until df.size) { // Assuming size() is column count
-      val col = df.col(columnIdx.toInt) // Assuming df.col(index) returns Java List<V>
+      val col = df.colInt(columnIdx.toInt) // Assuming df.col(index) returns Java List<V>
       val columnName: String = columns(columnIdx).toString
 
       // Use pattern matching on the column type
@@ -443,7 +443,7 @@ object Conversion:
           val namesUsed = mutable.HashSet[String]()
           // Get extra column data if template is provided
           val extra: Seq[AnyRef] =
-            if (template != null) template.col(columnIdx) else Seq.empty
+            if (template != null) template.colInt(columnIdx) else Seq.empty
           // Assuming template.col returns Java List<Object>
 
           // Call the helper function to convert variable to dummy variables
@@ -471,7 +471,7 @@ object Conversion:
           // This case handles types not explicitly listed above, treating them like String for dummy variable creation
           val namesUsed = mutable.HashSet[String]()
           val extra: Seq[AnyRef] =
-            if (template != null) template.col(columnIdx) else Seq.empty
+            if (template != null) template.colInt(columnIdx) else Seq.empty
 
           val vr = variableToDummy(
             col.toList,
