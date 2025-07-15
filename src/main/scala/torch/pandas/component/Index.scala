@@ -52,8 +52,8 @@ object Index {
     val viewData = new Views.ListView[V](df, false).asScala
       .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
-      transformed.colInt(0).asInstanceOf[Seq[Any]],
-      df.getColumns.asInstanceOf[Seq[Any]],
+      transformed.colInt(0).asInstanceOf[Seq[AnyRef]],
+      df.getColumns.asInstanceOf[Seq[AnyRef]],
       viewData,
     )
   }
@@ -81,35 +81,35 @@ object Index {
     val viewData = new Views.ListView[V](df, false).asScala
       .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
-      index.asInstanceOf[Seq[Any]],
-      df.getColumns.asInstanceOf[Seq[Any]],
+      index.asInstanceOf[Seq[AnyRef]],
+      df.getColumns.asInstanceOf[Seq[AnyRef]],
       viewData,
     )
   }
 }
 
 class Index(
-    private val indexMap: mutable.LinkedHashMap[Any, Int] =
+    private val indexMap: mutable.LinkedHashMap[AnyRef, Int] =
       mutable.LinkedHashMap.empty,
 ) {
 //  val it: Iterator[?] = names.iterator
   def this() = this(
-    new mutable.LinkedHashMap[Any, Int]().addAll(List.empty[Any].zipWithIndex),
+    new mutable.LinkedHashMap[AnyRef, Int]().addAll(List.empty[AnyRef].zipWithIndex),
   )
 
-  def this(names: Iterable[Any]) =
-    this(new mutable.LinkedHashMap[Any, Int]().addAll(names.zipWithIndex))
+  def this(names: Iterable[AnyRef]) =
+    this(new mutable.LinkedHashMap[AnyRef, Int]().addAll(names.zipWithIndex))
 
-  def this(names: Iterable[Any], size: Int) = {
+  def this(names: Iterable[AnyRef], size: Int) = {
     this()
     val it = names.iterator
     for (i <- 0 until size) {
       val name = if (it.hasNext) it.next() else i
-      add(name, i)
+      add(name.asInstanceOf[AnyRef], i)
     }
   }
 
-  def add(name: Any, value: Int): Unit = {
+  def add(name: AnyRef, value: Int): Unit = {
     if (indexMap.contains(name))
       throw new IllegalArgumentException(s"duplicate name '$name' in index")
     indexMap(name) = value
@@ -138,11 +138,12 @@ class Index(
 //      throw new IllegalArgumentException("duplicate name '" + name + "' in index")
 //  }
 
-  def extend(size: Int): Unit = for (i <- indexMap.size until size) add(i, i)
+  def extend(size: Int): Unit = for (i <- indexMap.size until size) add(i.asInstanceOf[AnyRef], i)
 
-  def set(name: Any, value: Int): Unit = indexMap.put(name, value)
+  def set(name: AnyRef, value: Int): Unit = indexMap.put(name, value)
 
-  def get(name: Any): Int = {
+  def get(name: AnyRef): Int = {
+    println(s"Class Index get func  name ${name}")
     val i = indexMap.get(name) //.get.asInstanceOf[Int]
     if (i == null || !i.isDefined)
       throw new IllegalArgumentException("name '" + name + "' not in index indexMap: " + indexMap.toSeq.mkString(",") + "")
@@ -151,8 +152,8 @@ class Index(
     index
   }
 
-  def rename(names: Map[Any, AnyRef]): Unit = {
-    val idx = new mutable.LinkedHashMap[Any, Int]
+  def rename(names: Map[AnyRef, AnyRef]): Unit = {
+    val idx = new mutable.LinkedHashMap[AnyRef, Int]
 
     for ((col, value) <- indexMap)
       if (names.keySet.contains(col)) idx.put(names.get(col), value)
@@ -169,8 +170,11 @@ class Index(
   def indices(names: Seq[AnyRef]): Array[Int] = {
     val size = names.size
     val indices = new Array[Int](size)
-    for (i <- 0 until size)
+    for (i <- 0 until size) {
+      println(s"Class Index indices name ${names(i)},")
+      println(s"Class Index indices name ${names(i)}, index ${get(names(i))}")
       indices(i) = get(names(i))
+    }
     indices
 //    Array(3,4,5)
   }

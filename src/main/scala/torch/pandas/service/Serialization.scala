@@ -245,7 +245,7 @@ object Serialization {
       naString: String,
   ): DataFrame[AnyRef] = readCsv(input, separator, numDefault, naString, true)
 
-  def readCsv(
+  def readCsvOld(
       input: InputStream,
       separator: String,
       numDefault: NumberDefault,
@@ -296,7 +296,10 @@ object Serialization {
         // The following line executes the procs on the previously read row again
         // reader.executeProcessors returns Java List<Object>, convert to Scala List[AnyRef]
 
-        df.append(reader.executeProcessors(procs*).asScala.toList)
+        val element = reader.executeProcessors(procs*).asScala.toList
+        println(s"element ${element.mkString(",")}")
+        df.append(element) // Append the first row to the DataFrame
+//        df.append(reader.executeProcessors(procs*).asScala.toList)
       }
       // Read remaining rows using a while loop
       var row: mutable.Buffer[AnyRef] = new mutable.ListBuffer[AnyRef]() // Use Java List for the row read by CsvListReader
@@ -317,6 +320,45 @@ object Serialization {
           case e: IOException => // Log or handle the close exception if necessary
             System.err.println(s"Error closing CsvListReader: ${e.getMessage}")
         }
+
+  def readCsv(input: InputStream, separator: String, numDefault: NumberDefault, naString: String, hasHeader: Boolean): DataFrame[AnyRef] =
+    val csvPreference = separator match
+      case "\\t" => CsvPreference.TAB_PREFERENCE
+      case "," => CsvPreference.STANDARD_PREFERENCE
+      case ";" => CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE
+      case "|" => new CsvPreference.Builder('"', '|', "\n").build()
+      case _ => throw new IllegalArgumentException(s"Separator: $separator is not currently supported")
+
+    val reader = new CsvListReader(new InputStreamReader(input), csvPreference)
+    try
+      var header: List[String] = null
+      var df: DataFrame[AnyRef] = null
+      var procs: Array[CellProcessor] = null
+
+      if hasHeader then
+        header = reader.getHeader(true).toList
+        procs = new Array[CellProcessor](header.size)
+        df = new DataFrame[AnyRef](header*)
+      else
+        reader.read()
+        header = (0 until reader.length()).map(i => s"V$i").toList
+        procs = new Array[CellProcessor](header.size)
+        df = new DataFrame[AnyRef](header*)
+//        val element = reader.executeProcessors(procs *).asScala.toList
+        df.append(reader.executeProcessors(procs*).asScala.toList)
+
+      var row = reader.read(procs*)
+      val rowBuffer = new mutable.ListBuffer[Seq[AnyRef]]()
+      while row != null do
+//        df.append(row.asScala.toList)
+        rowBuffer.append(row.asScala.toList)
+        println(s"row ${row.asScala.mkString(",")}")
+        row = reader.read(procs*)
+      rowBuffer.toSeq.map(slice => df.append(slice))
+      df
+      df.convert(numDefault, naString)
+    finally
+      reader.close()
   // @throws[IOException]
 //  def readCsv(input: InputStream, separator: String, numDefault: DataFrame.NumberDefault, naString: String, hasHeader: Boolean): DataFrame[AnyRef] = {
 //    var csvPreference: CsvPreference = null
@@ -370,7 +412,37 @@ object Serialization {
     writeCsv(df, new FileOutputStream(output))
 
   @throws[IOException]
-  def writeCsv[V](df: DataFrame[V], output: OutputStream): Unit =
+  def writeCsv[V](df: DataFrame[V], output: OutputStream): Unit = {
+    val writer = new CsvListWriter(new OutputStreamWriter(output), CsvPreference.STANDARD_PREFERENCE)
+    try {
+      // 生成表头
+      val header = new Array[String](df.size)
+      val it = df.getColumns.iterator //.asScala
+      for (c <- 0 until df.size) {
+        header(c) = it.nextOption().map(_.toString).getOrElse(c.toString)
+      }
+      writer.writeHeader(header: _*)
+      // 生成单元格处理器
+      val types = df.types //().asScala.toList
+      val procs = new Array[CellProcessor](df.size)
+      for (c <- 0 until df.size) {
+        val cls = types(c)
+        procs(c) = if (classOf[Date].isAssignableFrom(cls)) {
+          new ConvertNullTo("", new FmtDate("yyyy-MM-dd'T'HH:mm:ssXXX"))
+        } else {
+          new ConvertNullTo("")
+        }
+      }
+      // 写入数据行
+      for (row <- df) {
+        writer.write(row.asJava, procs)
+      }
+    } finally {
+      writer.close()
+    }
+  }
+  @throws[IOException]
+  def writeCsvOldBug[V](df: DataFrame[V], output: OutputStream): Unit =
     try {
       val writer = new CsvListWriter(
         new OutputStreamWriter(output),

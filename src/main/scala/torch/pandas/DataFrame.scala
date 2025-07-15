@@ -86,6 +86,15 @@ import scala.jdk.CollectionConverters.*
   */
 object DataFrame {
 
+  def fromSeq(data: Seq[Seq[?]],colNames:Seq[String]): DataFrame[?] = {
+    val rows = data.size
+    val cols = data.head.size
+    val df: DataFrame[Any] = new DataFrame[Any]((0 until rows).map(_.toString).toSeq,
+      colNames,
+      data.map(_.toSeq).toList)
+    df
+  }
+
   def fromNumpyNDArray[V](array: NDArray[V],transpose:Boolean = true): DataFrame[V] = {
     require(array.getNdim == 2, "Only 2D arrays are supported")
     val data: Array[Array[V]] = array.getArray.asInstanceOf[Array[Array[V]]]
@@ -94,7 +103,7 @@ object DataFrame {
     val cols = shape(1)
     val df = new DataFrame[V]( (0 until rows).map(_.toString).toSeq,
       (0 until cols).map(_.toString).toSeq,
-      data.map(_.toSeq).toList)
+      data.transpose.map(_.toSeq).toList)
     if transpose then return df.transpose else return df
   }
 
@@ -505,7 +514,7 @@ class DataFrame[V](
 //    new Grouping(),
 //  )
 // columns: mutable.Seq[Any]
-  def this(index: Seq[Any], columns: Seq[Any]) = this(
+  def this(index: Seq[AnyRef], columns: Seq[AnyRef]) = this(
     new Index(index, index.size),
     new Index(columns, columns.size),
     new BlockManager[V](List.empty),
@@ -520,8 +529,8 @@ class DataFrame[V](
   )
 
   def this(
-      index: Seq[Any],
-      columns: Seq[Any], //mutable.Seq[Any],
+      index: Seq[AnyRef],
+      columns: Seq[AnyRef], //mutable.Seq[Any],
       data: List[Seq[V]],
   ) = {
     this()
@@ -664,7 +673,7 @@ class DataFrame[V](
     * @return
     *   the data frame with the columns added
     */
-  def add(columns: Any*): DataFrame[V] = {
+  def add(columns: AnyRef*): DataFrame[V] = {
     columns.foreach { column =>
       val values = List.fill(length)(null.asInstanceOf[V])
       add(column, values)
@@ -724,7 +733,7 @@ class DataFrame[V](
     * @return
     *   the data frame with the column added
     */
-  def add(column: Any, function: List[V] => V): DataFrame[V] = {
+  def add(column: AnyRef, function: List[V] => V): DataFrame[V] = {
     val values = this.map(function).toList
     add(column, values)
   }
@@ -906,6 +915,7 @@ class DataFrame[V](
     *   a new data frame with index specified
     */
   def reindex(cols: Array[Int], drop: Boolean): DataFrame[V] = {
+    println(s"dataframe reindex cols ${cols.mkString(",")}")
     val df = Index.reindex(this, cols*)
     if (drop) df.drop(cols.toSeq) else df
   }
@@ -974,7 +984,10 @@ class DataFrame[V](
     * @return
     *   a new data frame with index specified
     */
-  def reindex(cols: AnyRef*): DataFrame[V] = reindex(columns.indices(cols), true)
+  def reindex(cols: AnyRef*): DataFrame[V] = {
+    val colInts = columns.indices(cols)
+    reindex(colInts, true)
+  }
 
   /** Return a new data frame with the default index, rows names will be reset
     * to the string value of their Int index.
@@ -992,7 +1005,7 @@ class DataFrame[V](
 
 //  def rename(old: Any, name: Any): DataFrame[V] = rename(mutable.Map(old -> name))
 
-  def rename(names: Map[Any, AnyRef]): DataFrame[V] = {
+  def rename(names: Map[AnyRef, AnyRef]): DataFrame[V] = {
     columns.rename(names)
     this
   }
@@ -1020,7 +1033,7 @@ class DataFrame[V](
     * @return
     *   the data frame with the new data appended
     */
-  def append(row: Seq[? <: V]): DataFrame[V] = append(length, row)
+  def append(row: Seq[? <: V]): DataFrame[V] = append(length.asInstanceOf[AnyRef], row)
 
   /** Append rows indexed by the the specified name to the data frame.
     *
@@ -1036,7 +1049,7 @@ class DataFrame[V](
     *   the data frame with the new data appended
     */
   @Timed
-  def append(name: Any, row: Seq[? <: V]): DataFrame[V] = {
+  def append(name: AnyRef, row: Seq[? <: V]): DataFrame[V] = {
     val len = length
     index.add(name, len)
     columns.extend(row.size)
@@ -1079,7 +1092,7 @@ class DataFrame[V](
     * @return
     *   a new data frame with the specified indices
     */
-  def reshape(rows: Seq[?], cols: Seq[?]): DataFrame[V] = Shaping
+  def reshape(rows: Seq[AnyRef], cols: Seq[AnyRef]): DataFrame[V] = Shaping
     .reshape(this, rows, cols)
 
   /** Return a new data frame created by performing a left outer join of this
@@ -1330,7 +1343,7 @@ class DataFrame[V](
     * @return
     *   the index names
     */
-  def getIndex: Seq[Any] = index.names.toSeq
+  def getIndex: Seq[AnyRef] = index.names.toSeq
 
   /** Return the column names for the data frame.
     *
@@ -1340,7 +1353,7 @@ class DataFrame[V](
     * @return
     *   the column names
     */
-  def getColumns: Seq[Any] = columns.names.toSeq
+  def getColumns: Seq[AnyRef] = columns.names.toSeq
 
   /** Return the value located by the (row, column) names.
     *
@@ -1428,7 +1441,7 @@ class DataFrame[V](
     * @param value
     *   the new value
     */
-  def set(row: Any, col: Any, value: Any): Unit =
+  def set(row: AnyRef, col: AnyRef, value: V): Unit =
     set(index.get(row), columns.get(col), value)
 
   /** Set the value located by the coordinates (row, column).
@@ -1671,7 +1684,7 @@ class DataFrame[V](
     val it = this.getIndex.iterator
     for (row <- this)
       for (trans <- transform.apply(row)) transformed
-        .append(if (it.hasNext) it.next else transformed.length, trans)
+        .append(if (it.hasNext) it.next else transformed.length.asInstanceOf[AnyRef], trans)
     transformed
   }
 
@@ -1950,8 +1963,8 @@ class DataFrame[V](
     * @return
     *   a map of group names to data frames
     */
-  def explode: LinkedHashMap[Any, DataFrame[V]] = {
-    val explodedMap = new mutable.LinkedHashMap[Any, DataFrame[V]]
+  def explode: LinkedHashMap[AnyRef, DataFrame[V]] = {
+    val explodedMap = new mutable.LinkedHashMap[AnyRef, DataFrame[V]]
 
     for (entry <- groups) {
       val selected = entry._2
@@ -2198,10 +2211,10 @@ class DataFrame[V](
     val nonnumeric: SparseBitSet = Inspection.nonnumeric(this)
     val scalaKeepSet = Selection.select(columns, nonnumeric).names
     // Convert the Scala Set to an Array[Any] (which corresponds to Object[] in Java)
-    val keepArray = scalaKeepSet.toSeq.map(_.asInstanceOf[Int])
+    val keepArray = scalaKeepSet.toSeq.map(_.asInstanceOf[String])
 
     // Retain the columns specified by the array of names
-    retains(keepArray)
+    retain(keepArray)
   }
 
   /** Return an iterator over the rows of the data frame. Also used implicitly

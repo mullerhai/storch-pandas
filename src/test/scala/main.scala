@@ -22,15 +22,41 @@ def testdf(): Unit = {
     //  df = df.drop("category")
 }
 
+def readNumpy(): Unit = {
+    val ndArray = TorchNumpy.rand(Array(6, 100))
+    val dfk = DataFrame.fromNumpyNDArray[Double](ndArray, false) //有bug  show 没问题， 但是 writeCsv 有问题
+    dfk.writeCsv("ndPadas.csv")
+//    dfk.show()
+//    ndArray.printArray()
+
+}
+
 @main
-def main(): Unit =
+def main(): Unit = {
+    val cols: Seq[String] = Seq("category", "name", "value", "version", "age", "score")
+    val rows: Seq[String] = Seq("row1", "row2", "row3", "row4", "row5", "row6")
+    val col1Data = Seq("test", "release", "alpha", "beta", "gama", "peter")
+    val col2Data = Seq("one", "two", "three", "four", "five", "six")
+    val col3Data = Seq(14, 25, Float.NaN, 0, 52, 67)
+    val col4Data = Seq(3, 5, Float.NaN, 0, 9, 10)
+    val col5Data = Seq(10, 25, 32, 45, 53, 60)
+    val col7Data = Seq(14, 25, 36, 48, 52, 67)
+    val col9Data = Seq(3, 5, 7, 8, 9, 10)
+    val col8Data = Seq("5one", "7two", "0three", "6one", "3two", "2three") //
+    val col6Data = Seq(10, 20, 30, 40, 50, 60)
+    val data = List(col1Data, col2Data, col3Data, col4Data, col6Data, col8Data)
+    val df = new DataFrame(rows, cols.asInstanceOf[Seq[AnyRef]], data)
+    println(df.describe)
+//    val dff = df.merge(df)
+//    dff.show()
+}
+
+def mains(): Unit =
+//    readNumpy()
   // TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
   // to see how IntelliJ IDEA suggests fixing it.
 //    (1 to 5).map(println)
 
-    val ndArray = TorchNumpy.rand(Array(6, 10))
-    val dfk = DataFrame.fromNumpyNDArray[Double](ndArray)
-    dfk.show()
     val cols: Seq[String] = Seq("category", "name", "value","version","age","score")
     val rows: Seq[String] = Seq("row1", "row2", "row3", "row4", "row5", "row6")
     val col1Data = Seq("test", "release", "alpha", "beta", "gama", "peter")
@@ -38,20 +64,33 @@ def main(): Unit =
     val col3Data = Seq(14, 25, Float.NaN, 0, 52, 67)
     val col4Data = Seq(3, 5, Float.NaN, 0, 9, 10)
     val col5Data = Seq(10, 25, 32, 45, 53, 60)
-//    val col1Data = Seq(14, 25, 36, 48, 52, 67)
-//    val col2Data = Seq(3, 5, 7, 8, 9, 10)
-//  val col3Data = Seq("5one", "7two", "0three", "6one", "3two", "2three") //
+    val col7Data = Seq(14, 25, 36, 48, 52, 67)
+    val col9Data = Seq(3, 5, 7, 8, 9, 10)
+    val col8Data = Seq("5one", "7two", "0three", "6one", "3two", "2three") //
     val col6Data = Seq(10, 20, 30, 40, 50, 60)
-    val data = List(col3Data, col3Data, col3Data,col4Data, col4Data, col4Data)
+    val data = List(col1Data, col2Data, col3Data,col4Data, col6Data, col8Data)
+    val dfdf = new DataFrame(cols.toSeq*).reshape(100, 20)
     // this(index: KeySet[Any], columns: mutable.Set[Any], data: List[Seq[V]])
-    val df = new DataFrame[Any](rows, cols.asInstanceOf[Seq[Any]], data) // ("row1", "row2", "row3")//, , ("test", "test", "test", "beta", "beta", "beta"), ("one", "two", "three", "one", "two", "three"), (10, 20, 30, 40, 50, 60)))
+    val df = new DataFrame(rows, cols.asInstanceOf[Seq[AnyRef]], data) // ("row1", "row2", "row3")//, , ("test", "test", "test", "beta", "beta", "beta"), ("one", "two", "three", "one", "two", "three"), (10, 20, 30, 40, 50, 60)))
     val index = df.index
     val colz = df.columns
     val values = df.data
     val gp = df.groups
+    val row6 = Seq(10, 25, 32,45,12,42)//"seven")
+    df.append("row61", row6)
+//    df.writeCsv("recordks.csv")
+//    df.show()
     val df2 = df.drop(Seq(2),true)
 
-    df.transpose.writeCsv("record.csv")
+    val dfss = DataFrame.readCsv("recordks.csv")
+//    dfss.set(4,"score",30000)
+    dfss.show()
+    println("dfss.index.names. "+dfss.index.names.mkString(","))
+    println("dfss.index.columns  "+dfss.columns.names.mkString(","))
+    println(s"dfss data ${dfss.data}")
+//    println(s"dfss.row 1 ${dfss.row("1")}")
+//    dfss.show()
+//    df.writeCsv("records.csv")
 //    println(df.rows)
     println(df.row("row4"))
     println(s"df.col(value) ${df.col("value")}")
@@ -63,12 +102,13 @@ def main(): Unit =
     val ff = df.dropna(COLUMNS)
     val ff3 = df.dropna(ROWS)
     //    println(ff.show())
-    ff3.fillna(100).show()
+    ff3.fillna(100)//.show()
     df.kurt
 //    df.unique
     df.percentile(0.5)
     df.median
     df.stddev
+
     println(df.`var`)
     println(df.cov)
     println(df.cummax)
@@ -87,7 +127,7 @@ def main(): Unit =
     println(df.cumprod)
     println(df.cummin)
     println(df.coalesce())
-    println(df.percentChange)
+//    println(df.percentChange)
     println(df.join(df2))
     val ndf = df.slice(2,5)
     ndf.append("newCol", Seq(1, 2, 3, 4, 5, 6))
@@ -98,9 +138,11 @@ def main(): Unit =
 
 //    ndf.show()
     println("try to concat....")
+//    println(df.describe)
 //    ndf.reshape(3, 2)
-//    println(df.merge(df))
-//    println(df.concat(df))
+    val doss = df.merge(df)
+//    val dp =df.concat(df)
+    doss.show()
 //    println(df.heads(2).show())
 
 
@@ -123,9 +165,8 @@ def main(): Unit =
 //    df3.show()
 //    println(index)
 //    println(colz)
-    println(df.columns.names.mkString(","))
-    ndArray.printArray()
-    dfk.writeCsv("ndPadas.csv")
+//    println(df.columns.names.mkString(","))
+
 //    df.plot()
 
 //    println(df.columns.get("value"))

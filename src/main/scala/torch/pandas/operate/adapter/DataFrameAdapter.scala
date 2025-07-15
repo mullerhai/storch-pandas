@@ -80,15 +80,15 @@ object DataFrameAdapter {
         data.append(asList(array.get(ids(i).asInstanceOf[Int], null)))
         i += 1
       }
-      val x1 = asList(args(0)).asInstanceOf[Seq[Any]]
-      val x2 = asList(args(1)).asInstanceOf[Seq[Any]]
+      val x1 = asList(args(0)).asInstanceOf[Seq[AnyRef]]
+      val x2 = asList(args(1)).asInstanceOf[Seq[AnyRef]]
       val x3: List[Seq[AnyRef]] = data.toList // map(_.asInstanceOf[Seq[_.asInstanceOf[AnyRef]]]).toList
       val df = new DataFrame[AnyRef](x1, x2, x3)
       return new DataFrameAdapter(df)
     } else if (args.length == 2 && args(0).isInstanceOf[NativeArray])
       return new DataFrameAdapter(new DataFrame[AnyRef](
-        asList(args(0)).asInstanceOf[Seq[Any]],
-        asList(args(1)).asInstanceOf[Seq[Any]],
+        asList(args(0)).asInstanceOf[Seq[AnyRef]],
+        asList(args(1)).asInstanceOf[Seq[AnyRef]],
       ))
     else if (args.length == 1 && args(0).isInstanceOf[NativeArray]) {
       val df = new DataFrame[AnyRef](asList(args(0)).map(_.toString)*)
@@ -654,7 +654,7 @@ class DataFrameAdapter extends ScriptableObject {
 
   def jsFunction_groups: Grouping[?] = df.groups
 
-  def jsFunction_explode: LinkedHashMap[Any, DataFrame[AnyRef]] = df.explode
+  def jsFunction_explode: LinkedHashMap[AnyRef, DataFrame[AnyRef]] = df.explode
 
   def jsFunction_aggregate(function: Function): DataFrameAdapter = {
     @SuppressWarnings(Array("unchecked"))

@@ -58,19 +58,19 @@ object Pivoting {
 
   @SuppressWarnings(Array("unchecked"))
   private def pivot[I, O](
-      grouped: LinkedHashMap[Any, DataFrame[I]],
+      grouped: LinkedHashMap[AnyRef, DataFrame[I]],
       values: LinkedHashMap[Int, ? <: DataFrame.Aggregate[I, O]],
       columns: Set[Int],
   ) = {
-    val pivotColsBak = new ListBuffer[Any]
-    val pivotCols = new mutable.LinkedHashSet[Any]
-    val pivotData = new mutable.LinkedHashMap[Any, LinkedHashMap[Any, Seq[Any]]]
-    val pivotFunctions = new mutable.LinkedHashMap[Any, DataFrame.Aggregate[I, ?]]
+    val pivotColsBak = new ListBuffer[AnyRef]
+    val pivotCols = new mutable.LinkedHashSet[AnyRef]
+    val pivotData = new mutable.LinkedHashMap[AnyRef, LinkedHashMap[AnyRef, Seq[AnyRef]]]
+    val pivotFunctions = new mutable.LinkedHashMap[AnyRef, DataFrame.Aggregate[I, ?]]
     val colNames = new ListBuffer[AnyRef]() // grouped.values.iterator.next.columns)
     // allocate row -> column -> data maps
 
     for (rowEntry <- grouped) {
-      val rowData = new mutable.LinkedHashMap[Any, Seq[Any]]
+      val rowData = new mutable.LinkedHashMap[AnyRef, Seq[AnyRef]]
 
       for (c <- columns) {
         val colName = colNames(c)
@@ -105,7 +105,8 @@ object Pivoting {
           val colData = rowData.get(colName).toBuffer
           // optimization, only add first value
           // since the values are all the same (due to grouping)
-          colData.append(colEntry._2.getFromIndex(0, c))
+          val kk = colEntry._2.getFromIndex(0, c).asInstanceOf[Seq[AnyRef]]
+          colData.append(kk)
         }
         // add values for aggregation
 
@@ -136,12 +137,12 @@ object Pivoting {
     pivot
   }
 
-  private def name(key: Any, name: AnyRef, values: LinkedHashMap[?, ?]) = {
+  private def name(key: AnyRef, name: AnyRef, values: LinkedHashMap[?, ?]) = {
     var colName = key
     // if multiple value columns are requested the
     // value column name must be added to the pivot column name
     if (values.size > 1) {
-      val tmp = new ListBuffer[Any]()
+      val tmp = new ListBuffer[AnyRef]()
       tmp.append(name)
       if (key.isInstanceOf[Seq[AnyRef]])
 

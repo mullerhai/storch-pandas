@@ -23,23 +23,26 @@ import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 object Shaping {
   def reshape[V](df: DataFrame[V], rows: Int, cols: Int): DataFrame[V] = {
     val reshaped = new DataFrame[V]
-    var it: Iterator[Any] = null
-    it = df.getColumns.iterator
+    var colIt: Iterator[AnyRef] = df.getColumns.iterator
     for (c <- 0 until cols) {
-      val name = if (it.hasNext) it.next else c
+      println(s"for 1 $c")
+      val name = colIt.nextOption().getOrElse(c.asInstanceOf[AnyRef]) //  if (it.hasNext) it.next else c
       reshaped.add(name)
     }
-    it = df.getIndex.iterator
+    println("coming")
+    val rowIt = df.getIndex.iterator
     for (r <- 0 until rows) {
-      val name = if (it.hasNext) it.next else r
+      println(s"for 2 $r")
+      val name = rowIt.nextOption().getOrElse(r.asInstanceOf[AnyRef]) //if (it.hasNext) it.next else r.asInstanceOf[String]
       reshaped.append(name, Seq.empty)
     }
     for (c <- 0 until cols) for (r <- 0 until rows)
+      println(s"for 3 $c $r")
       if (c < df.size && r < df.length) reshaped.set(r, c, df.getFromIndex(r, c))
     reshaped
   }
 
-  def reshape[V](df: DataFrame[V], rows: Seq[?], cols: Seq[?]): DataFrame[V] = {
+  def reshape[V](df: DataFrame[V], rows: Seq[AnyRef], cols: Seq[AnyRef]): DataFrame[V] = {
     val reshaped = new DataFrame[V]
 
     for (name <- cols) reshaped.add(name)

@@ -26,10 +26,10 @@ object Comparison {
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] = {
     // algorithm
     // 1. determine union of rows and columns
-    val rows = new LinkedHashSet[Any]()
+    val rows = new LinkedHashSet[AnyRef]()
     rows.addAll(df1.getIndex)
     rows.addAll(df2.getIndex)
-    val cols = new LinkedHashSet[Any]()
+    val cols = new LinkedHashSet[AnyRef]()
     cols.addAll(df1.getColumns)
     cols.addAll(df2.getColumns)
     // 2. reshape left to contain all rows and columns
@@ -38,7 +38,7 @@ object Comparison {
     val left = df1.reshape(rowSeq, colsSeq)
     // 3. reshape right to contain all rows and columns
     val right = df2.reshape(rowSeq, colsSeq)
-    val comp = new DataFrame[String](rowSeq, colsSeq.asInstanceOf[Seq[Any]])
+    val comp = new DataFrame[String](rowSeq, colsSeq.asInstanceOf[Seq[AnyRef]])
     // 4. perform comparison cell by cell
     for (c <- 0 until left.size) for (r <- 0 until left.length) {
       val lval = left.getFromIndex(r, c)

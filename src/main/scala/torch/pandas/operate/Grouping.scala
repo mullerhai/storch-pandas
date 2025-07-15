@@ -29,14 +29,14 @@ import torch.pandas.DataFrame.{Aggregate, Function, KeyFunction}
 import scala.collection.mutable
 import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
-class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
+class Grouping[V] extends Iterable[(AnyRef, SparseBitSet)] {
 
 //  def this() ={ }
 
-  private val groups: mutable.LinkedHashMap[Any, SparseBitSet] =
+  private var groups: mutable.LinkedHashMap[AnyRef, SparseBitSet] =
     mutable.LinkedHashMap.empty
 
-  private val columns: mutable.LinkedHashSet[Int] = mutable.LinkedHashSet.empty
+  private var columns: mutable.LinkedHashSet[Int] = mutable.LinkedHashSet.empty
   def this(df: DataFrame[V], function: KeyFunction[V], cols: Int*) = {
     this()
     val iter = df.iterator
@@ -84,8 +84,8 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
 
     val grouped = mutable.ListBuffer[mutable.ListBuffer[V]]()
     val names = df.getColumns.toList
-    val newcols = mutable.ListBuffer[Any]()
-    val index = mutable.ListBuffer[Any]()
+    val newcols = mutable.ListBuffer[AnyRef]()
+    val index = mutable.ListBuffer[AnyRef]()
 
     // construct new row index
     if (function.isInstanceOf[Aggregate[?, ?]] && groups.nonEmpty) index
@@ -113,13 +113,13 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
       if (groups.isEmpty) {
         try
           if (function.isInstanceOf[Aggregate[?, ?]]) {
-            println("here if")
+//            println("here if")
             column.addOne(
             function.asInstanceOf[Aggregate[V, V]].apply(df.colInt(c).toList)
               .asInstanceOf[V],
           )
           } else for (r <- 0 until df.length)
-            println("here else")
+//            println("here else")
             column.addOne(
             function.asInstanceOf[Function[V, V]].apply(df.getFromIndex(r, c))
               .asInstanceOf[V],
@@ -174,11 +174,11 @@ class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
     )
   }
 
-  def keys(): Set[Any] = groups.keySet.toSet
+  def keys(): Set[AnyRef] = groups.keySet.toSet
 
   def getColumns(): Set[Int] = columns.toSet
 
-  override def iterator: Iterator[(Any, SparseBitSet)] = groups.iterator
+  override def iterator: Iterator[(AnyRef, SparseBitSet)] = groups.iterator
 }
 //class Grouping extends Iterable[LinkedHashMap.Entry[AnyRef, SparseBitSet]] {
 //  final private val groups = new mutable.LinkedHashMap[AnyRef, SparseBitSet]

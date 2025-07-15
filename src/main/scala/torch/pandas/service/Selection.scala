@@ -41,7 +41,7 @@ object Selection {
   }
 
   def select(index: Index, selected: SparseBitSet): Index = {
-    val names = new ListBuffer[Any]() // index.names)
+    val names = new ListBuffer[AnyRef]() // index.names)
     index.names.foreach(ee => names.append(ee))
     val newidx = new Index
     var r = selected.nextSetBit(0)

@@ -44,7 +44,7 @@ object Timeseries {
     }
     new DataFrame[V](
       df.getIndex,
-      df.getColumns.asInstanceOf[Seq[Any]],
+      df.getColumns.asInstanceOf[Seq[AnyRef]],
       data.toList,
     )
   }

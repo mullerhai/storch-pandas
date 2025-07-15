@@ -59,9 +59,10 @@ object Combining:
     val leftIt = left.getIndex.iterator
     val rightIt = right.getIndex.iterator
     // Use mutable.LinkedHashMap to preserve insertion order
-    val leftMap = mutable.LinkedHashMap[Any, List[V]]()
-    val rightMap = mutable.LinkedHashMap[Any, List[V]]()
+    val leftMap = mutable.LinkedHashMap[AnyRef, List[V]]()
+    val rightMap = mutable.LinkedHashMap[AnyRef, List[V]]()
 
+    println("try to join........")
     // Populate leftMap
     for (row <- left) { // Assuming DataFrame is Iterable[List[V]] or similar
       val name = leftIt.next()
@@ -257,12 +258,13 @@ object Combining:
     val intersection = leftNonNumericCols.intersect(rightNonNumericCols)
 
     // Convert the Scala Set to an Array[Any] (corresponds to Object[] in Java)
-    val columnsArray: Array[Any] = intersection.toArray
+    val columnsArray: Array[AnyRef] = intersection.toArray
 
+    println("try to merge ...... join ")
     // Reindex both DataFrames to keep only the intersection columns and perform the join
     join(
-      left.reindex(columnsArray.asInstanceOf[Array[Object]]),
-      right.reindex(columnsArray.asInstanceOf[Array[Object]]),
+      left.reindex(columnsArray.asInstanceOf[Array[AnyRef]]),
+      right.reindex(columnsArray.asInstanceOf[Array[AnyRef]]),
       how,
       null,
     )
@@ -347,38 +349,42 @@ object Combining:
     // Calculate total rows and collect all unique column names
     var totalRows = 0
     // Use mutable.LinkedHashSet to preserve column order from the first DataFrame encountered
-    val columns = mutable.LinkedHashSet[Any]()
+    val columns = mutable.LinkedHashSet[AnyRef]()
     for (df <- dfs) {
+      println("for 1 out df.getIndex.size: " + df.getIndex.size)
       totalRows += df.length // Assuming length() is row count
-      for (c <- df.getColumns) // Iterate through Java List of columns
+      for (c <- df.getColumns) { // Iterate through Java List of columns
+        println("for 1 inner c: " + c)
         columns.add(c)
+      }
     }
 
     // Convert the unique column names Set to a Scala List
-    val newcols: List[Any] = columns.toList
+    val newcols: List[AnyRef] = columns.toList
 
     // Create the combined DataFrame with the determined columns and total rows
     // Assuming DataFrame constructor takes Java List of columns and reshape takes rows, cols
-    val combined = new DataFrame[V](newcols.map(_.toString) *)
-      .reshape(totalRows, newcols.size)
+    val comm = new DataFrame[V](newcols.map(_.toString) *)
+    val combined = comm.reshape(totalRows, newcols.size)
 
     // Populate the combined DataFrame
     var offset = 0 // Keep track of the row offset for each DataFrame
     for (df <- dfs) {
       // Convert the current DataFrame's columns (Java List) to a Scala List
-      val dfCols: List[Any] = df.getColumns.toList
-
+      val dfCols: List[AnyRef] = df.getColumns.toList
+      println("for 2 out dfCols: " + dfCols.mkString(","))
       // Iterate through the columns of the current DataFrame
       for (cIndex <- 0 until dfCols.size) {
         val colName = dfCols(cIndex)
         // Find the index of this column name in the new combined columns list
         val newcIndex = newcols.indexOf(colName)
-
+        println("for 2 inner newcIndex: " + newcIndex)
         // If the column exists in the combined DataFrame (it should if collected correctly)
         if (newcIndex >= 0)
           // Copy data from the current DataFrame to the combined DataFrame
           for (r <- 0 until df.length) { // Iterate through rows of the current DataFrame
             val value = df.getFromIndex(r, cIndex) // Get value from current DataFrame
+            println("for 2 inner inner value: " + value)
             combined.set(offset + r, newcIndex, value) // Set value in combined DataFrame at the correct offset and column
           }
       }
