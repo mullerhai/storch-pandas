@@ -17,17 +17,17 @@
  */
 package torch.pandas.operate
 
+import torch.pandas.function.CumulativeFunction
+import torch.pandas.operate.SparseBitSet
+
 import scala.collection.Set as KeySet
 import scala.language.postfixOps
 //import torch.pandas.operate.Transforms.CumulativeFunction
-import scala.collection.mutable
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.{Aggregate, Function, KeyFunction}
 
-import torch.DataFrame
-import torch.DataFrame.Aggregate
-import torch.DataFrame.Function
-import torch.DataFrame.KeyFunction
+import scala.collection.mutable
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 class Grouping[V] extends Iterable[(Any, SparseBitSet)] {
 

@@ -15,14 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
+package torch.pandas
 
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.LinkedHashSet
-import scala.collection.mutable.ListBuffer
-import torch.DataFrame
+import torch.pandas.DataFrame
 
 import scala.collection.mutable
+import scala.collection.mutable.{LinkedHashMap, LinkedHashSet, ListBuffer}
 
 object Comparison {
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] = {

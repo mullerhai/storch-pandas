@@ -18,17 +18,13 @@ package torch.pandas.operate
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import scala.collection.mutable
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.* // For converting Java collections if needed (though we aim to avoid them)
-import scala.util.control.Breaks.break
-import scala.util.control.Breaks.breakable
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.{JoinType, KeyFunction, compare}
 
-import torch.DataFrame
-import torch.DataFrame.JoinType
-import torch.DataFrame.KeyFunction
-import torch.DataFrame.compare
+import scala.collection.mutable
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.jdk.CollectionConverters.*
+import scala.util.control.Breaks.{break, breakable}
 
 // Import assumed existing type
 // Import Java reflection for Array.newInstance if needed (though not in this specific class)

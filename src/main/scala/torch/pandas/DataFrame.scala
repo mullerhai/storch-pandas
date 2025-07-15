@@ -15,55 +15,38 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch
+package torch.pandas
+
+import torch.pandas.DataFrame
+import torch.numpy.extern.NpyFile
+import torch.numpy.serve.Numpy
+import torch.pandas.operate.{Combining, Grouping, Pivoting, Shaping, Sorting}
+import torch.pandas.service.{Aggregation, Serialization}
 
 import java.awt.Container
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
+import java.io.{FileOutputStream, IOException, InputStream, OutputStream}
 import java.util
+import scala.reflect.ClassTag
 //import java.lang.reflect.Array
-import java.sql.Connection
-import java.sql.PreparedStatement
-import java.sql.ResultSet
-import java.sql.SQLException
-import java.sql.Statement
+import com.codahale.metrics.annotation.Timed
+import torch.pandas.DataFrame.Axis
+import torch.pandas.DataFrame.Axis.ROWS
+import torch.numpy.enums.DType
+import torch.numpy.matrix.NDArray
+import torch.numpy.serve.TorchNumpy
+import torch.pandas.component.{BlockManager, Display, Index, Shell, Views}
+import torch.pandas.function.{Timeseries, Transforms}
+import torch.pandas.operate
+import torch.pandas.operate.SparseBitSet
+import torch.pandas.service.{Inspection, Selection}
+
+import java.sql.{ResultSet, SQLException, PreparedStatement, Statement, Connection}
 import java.util
 import java.util.Comparator
-
-import scala.collection.Set as KeySet
-import scala.collection.immutable.Seq
-import scala.collection.immutable.Set
-import scala.collection.mutable
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
+import scala.collection.immutable.{Seq, Set}
+import scala.collection.{mutable, Set as KeySet}
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 import scala.jdk.CollectionConverters.*
-
-import com.codahale.metrics.annotation.Timed
-
-import torch.DataFrame.Axis
-import torch.DataFrame.Axis.ROWS
-import torch.pandas.operate
-import torch.pandas.operate.Aggregation
-import torch.pandas.operate.BlockManager
-import torch.pandas.operate.Combining
-import torch.pandas.operate.Comparison
-import torch.pandas.operate.Conversion
-import torch.pandas.operate.Display
-import torch.pandas.operate.Grouping
-import torch.pandas.operate.Index
-import torch.pandas.operate.Inspection
-import torch.pandas.operate.Pivoting
-import torch.pandas.operate.Selection
-import torch.pandas.operate.Serialization
-import torch.pandas.operate.Shaping
-import torch.pandas.operate.Shell
-import torch.pandas.operate.Sorting
-import torch.pandas.operate.SparseBitSet
-import torch.pandas.operate.Timeseries
-import torch.pandas.operate.Transforms
-import torch.pandas.operate.Views
 
 /** A data frame implementation in the spirit of <a
   * href="http://pandas.pydata.org">Pandas</a> or <a
@@ -102,6 +85,79 @@ import torch.pandas.operate.Views
   *   V> the type of values in this data frame
   */
 object DataFrame {
+
+  def fromNumpyNDArray[V](array: NDArray[V],transpose:Boolean = true): DataFrame[V] = {
+    require(array.getNdim == 2, "Only 2D arrays are supported")
+    val data: Array[Array[V]] = array.getArray.asInstanceOf[Array[Array[V]]]
+    val rows = data.length
+    val shape = array.getShape
+    val cols = shape(1)
+    val df = new DataFrame[V]( (0 until rows).map(_.toString).toSeq,
+      (0 until cols).map(_.toString).toSeq,
+      data.map(_.toSeq).toList)
+    if transpose then return df.transpose else return df
+  }
+
+  def toNumpyNDArray[V](df: DataFrame[V],fillValue : Double = Double.NaN): NDArray[V] = {
+    val data = df.toModelMatrixDataFrame.toModelMatrix(fillValue) //.toModelMatrix()
+    //    val rows = data.size
+    //    val cols = data.head.size
+    //    val array = new NDArray[V](rows, cols)
+    //    for (i <- 0 until rows) {
+    //      for (j <- 0 until cols) {
+    //      }}  //[Double,V]
+    val ndArray: NDArray[V] = TorchNumpy.array(data)
+    ndArray
+  }
+
+  def toNumpyNpyFile[V: ClassTag](df: DataFrame[V],file: String): Unit = {
+    val array: NDArray[V] = toNumpyNDArray(df)
+//    NpyFile.write(array, file)
+    TorchNumpy.saveNpyFile[V](file,array)
+  }
+
+  def fromNumpyNpyFile[V](file: String): DataFrame[V] = {
+    val array: NDArray[V] = TorchNumpy.loadNDArray(file)
+    fromNumpyNDArray(array)
+  }
+
+  def toNumpyNpzFile[V: ClassTag](dfSeq: Seq[DataFrame[V]], file: String): Unit = {
+    val array: Seq[NDArray[V]] = dfSeq.map(df =>toNumpyNDArray(df))
+    //    NpyFile.write(array, file)
+    TorchNumpy.saveNpzFile(file,array)
+  }
+
+  def fromNumpyNpzFile[V: ClassTag](file: String): Seq[DataFrame[?]] = {
+    val ndArray: Seq[NDArray[?]] = TorchNumpy.loadNpzFile(file)
+    ndArray.map(array =>fromNumpyNDArray(array))
+  }
+
+  def fromNumpyCSVTextFile[V:ClassTag](file: String, shape: Seq[Int], header: Boolean = false, dtype: DType = DType.Float32): DataFrame[V] = {
+    val array: NDArray[V] = TorchNumpy.loadNDArrayFromCSV(file, shape, header, dtype)
+    fromNumpyNDArray(array)
+  }
+
+  def toNumpyCSVTextFile[V:ClassTag](df: DataFrame[V], file: String, is2dim: Boolean = false, rowFirst:Boolean = true): Unit = {
+    val array: NDArray[V] = toNumpyNDArray(df)
+    TorchNumpy.saveNDArrayToCSV(array, file, is2dim, rowFirst)
+  }
+  /** *
+   * 将case class转换为DataFrame
+   *
+   * @param records
+   * @param transpose
+   * @param tag
+   * @tparam T
+   * @return
+   */
+  def fromCaseClassSeq[T](records: Seq[T], transpose: Boolean = true)(implicit tag: ClassTag[T]): DataFrame[T] = {
+    val fieldNames = tag.runtimeClass.getDeclaredFields.map(_.getName).toSeq
+    val rows = records.map(record => fieldNames.map(fieldName => record.getClass.getMethod(fieldName).invoke(record)))
+    val rowIndex = (0 until fieldNames.size).map(_.toString).toSeq //rows.size
+    val df = new DataFrame[T](rowIndex, fieldNames.asInstanceOf[Seq[String]], rows.asInstanceOf[List[Seq[T]]])
+    if transpose then return df.transpose else return df
+  }
+
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] =
     Comparison.compare(df1, df2)
 
@@ -452,7 +508,7 @@ class DataFrame[V](
   def this(index: Seq[Any], columns: Seq[Any]) = this(
     new Index(index, index.size),
     new Index(columns, columns.size),
-    new operate.BlockManager[V](List.empty),
+    new BlockManager[V](List.empty),
     new Grouping(),
   )
 
@@ -469,7 +525,7 @@ class DataFrame[V](
       data: List[Seq[V]],
   ) = {
     this()
-    val mgr = new operate.BlockManager[V](data)
+    val mgr = new BlockManager[V](data)
     mgr.reshape(
       math.max(mgr.size(), columns.size),
       math.max(mgr.length(), index.size),
@@ -548,6 +604,54 @@ class DataFrame[V](
 //    this.groups = groups
 //  }
 
+  /***
+   * 将case class转换为DataFrame
+   * @param records
+   * @param transpose
+   * @param tag
+   * @tparam T
+   * @return
+   */
+  def caseClassSeqToDataFrame[T](records: Seq[T], transpose: Boolean = true)(implicit tag: ClassTag[T]): DataFrame[T] = {
+    val fieldNames = tag.runtimeClass.getDeclaredFields.map(_.getName).toSeq
+    val rows = records.map(record => fieldNames.map(fieldName => record.getClass.getMethod(fieldName).invoke(record)))
+    val rowIndex = (0 until fieldNames.size).map(_.toString).toSeq //rows.size
+    val df = new DataFrame[T](rowIndex, fieldNames.asInstanceOf[Seq[String]], rows.asInstanceOf[List[Seq[T]]])
+    if transpose then return df.transpose else return df
+  }
+
+  /***
+   *
+   * @param args
+   * @param tag
+   * @tparam T
+   * @return
+   */
+  def tagClassToInstance[T](args: List[Any])(implicit tag: ClassTag[T]): T = {
+    val constructor = tag.runtimeClass.getConstructors.head
+    //    val args = constructor.getParameterTypes.map(_ => null)
+    constructor.newInstance(args*).asInstanceOf[T]
+  }
+
+  /***
+   *
+   * @param df
+   * @param transpose
+   * @param tag
+   * @tparam T
+   * @return
+   */
+  def dataFrameToCaseClass[T](transpose: Boolean = false)(implicit tag: ClassTag[T]): Seq[T] = {
+    // 获取 case class 的字段名
+    val fieldNames = tag.runtimeClass.getDeclaredFields.map(_.getName).toSeq
+    // 获取 DataFrame 的数据行
+    val rowValueSeq = if transpose then this.transpose.iterrows else this.iterrows
+    val records = rowValueSeq.map { row =>
+      // 获取 case class 的构造函数
+      tagClassToInstance(row)
+    }
+    records.toSeq
+  }
   /** Add new columns to the data frame.
     *
     * Any existing rows will have {@code null} values for the new columns.
@@ -1307,7 +1411,7 @@ class DataFrame[V](
       Selection.select(index, slice(0)),
       Selection.select(columns, slice(1)),
       Selection.select(data, slice(0), slice(1)),
-      new operate.Grouping,
+      new Grouping,
     )
   }
 
@@ -1439,7 +1543,7 @@ class DataFrame[V](
       Selection.select(index, selected),
       columns,
       Selection.select(data, selected),
-      new operate.Grouping,
+      new Grouping,
     )
   }
 
@@ -1474,7 +1578,7 @@ class DataFrame[V](
       Selection.select(index, selected),
       columns,
       Selection.select(data, selected),
-      new operate.Grouping,
+      new Grouping,
     )
   }
 
@@ -1509,7 +1613,7 @@ class DataFrame[V](
       Selection.select(index, selected),
       columns,
       Selection.select(data, selected),
-      new operate.Grouping,
+      new Grouping,
     )
   }
 
@@ -1857,7 +1961,7 @@ class DataFrame[V](
           Selection.select(index, selected),
           columns,
           Selection.select(data, selected),
-          new operate.Grouping,
+          new Grouping,
         ),
       )
     }

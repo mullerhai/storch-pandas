@@ -17,15 +17,12 @@
  */
 package torch.pandas.operate
 
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.SortDirection
+
 import java.util.Comparator
-
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
-import scala.util.control.Breaks.break
-import scala.util.control.Breaks.breakable
-
-import torch.DataFrame
-import torch.DataFrame.SortDirection
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.util.control.Breaks.{break, breakable}
 object Sorting {
   def sort[V](
       df: DataFrame[V],

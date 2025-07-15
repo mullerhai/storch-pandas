@@ -1,4 +1,5 @@
-package torch.pandas.operate
+package torch.pandas.component
+
 /*
  * torch -- Data frames for Java
  * Copyright (c) 2014, 2015 IBM Corp.
@@ -17,35 +18,18 @@ package torch.pandas.operate
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import java.io.BufferedReader
-import java.io.FileReader
-import java.io.IOException
-import java.io.InputStream
-import java.io.InputStreamReader
+import java.io.*
 import java.lang.reflect.InvocationTargetException
-import java.util.Arrays as JArrays
-import java.util.List as JList // Use alias for Java List and Arrays
+import java.util.{Arrays as JArrays, List as JList} // Use alias for Java List and Arrays
 
 // Import necessary Scala collections
-import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.* // For converting Java collections to Scala and vice versa
-
-import org.jline.reader.Candidate
-import org.jline.reader.Completer
-import org.jline.reader.EndOfFileException
-import org.jline.reader.LineReader
-import org.jline.reader.LineReaderBuilder
-import org.jline.reader.ParsedLine
-import org.mozilla.javascript.Context
-import org.mozilla.javascript.Function
-import org.mozilla.javascript.NativeJavaArray
-import org.mozilla.javascript.NativeJavaClass
-import org.mozilla.javascript.Scriptable
-import org.mozilla.javascript.ScriptableObject
-import org.mozilla.javascript.WrappedException
-
-import torch.DataFrame
+import org.jline.reader.*
+import org.mozilla.javascript.{Context, Function, NativeJavaArray, NativeJavaClass, Scriptable, ScriptableObject, WrappedException}
+import torch.pandas.DataFrame
 import torch.pandas.operate.adapter.DataFrameAdapter
+
+import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
 
 object Shell:
 

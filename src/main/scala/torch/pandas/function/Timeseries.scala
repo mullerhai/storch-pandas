@@ -15,16 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
+package torch.pandas.function
+
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.Function
 
 import java.util
-
 import scala.collection.mutable
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
-
-import torch.DataFrame
-import torch.DataFrame.Function
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 object Timeseries {
   def rollapply[V](

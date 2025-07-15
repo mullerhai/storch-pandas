@@ -17,17 +17,15 @@
  */
 package torch.pandas.operate
 
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.{Aggregate, KeyFunction}
+import torch.pandas.service.Aggregation
+import torch.pandas.service.Aggregation.Unique
+
 import java.util
-
 import scala.collection.mutable
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 import scala.jdk.CollectionConverters.*
-
-import Aggregation.Unique
-import torch.DataFrame
-import torch.DataFrame.Aggregate
-import torch.DataFrame.KeyFunction
 
 object Pivoting {
   def pivot[V](

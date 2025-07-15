@@ -31,7 +31,7 @@ ThisBuild / developers := List(
   // your GitHub handle and name
   tlGitHubDev("mullerhai", "mullerhai")
 )
-ThisBuild / version := "0.1.1"
+ThisBuild / version := "0.1.2"
 
 ThisBuild / scalaVersion := "3.6.4"
 ThisBuild / tlSonatypeUseLegacyHost := false
@@ -72,7 +72,7 @@ ThisBuild / scmInfo := Some( ScmInfo( url( "https://github.com/mullerhai/storch-
 //val scrImageVersion = "4.3.0" //4.0.34
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.18.1" % Test
 libraryDependencies +=  "io.github.mullerhai" % "storch-pickle_3" % "0.1.3"
-libraryDependencies +=  "io.github.mullerhai" % "storch-numpy_3" % "0.1.4"
+libraryDependencies +=  "io.github.mullerhai" % "storch-numpy_3" % "0.1.5"
 libraryDependencies += "io.github.mullerhai" % "storch-safe-tensor_3" % "0.1.1"
 libraryDependencies += "io.github.mullerhai" % "storch-scikit-learn_3" % "0.1.1" exclude("org.scala-lang.modules","scala-collection-compat_2.13") exclude("org.typelevel","algebra_2.13")exclude("org.typelevel","cats-kernel_2.13")
 //libraryDependencies += "io.circe" %% "circe-core" % circeVersion,

@@ -15,50 +15,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
+package torch.pandas.service
 
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.InputStream
-import java.io.InputStreamReader
-import java.io.OutputStream
-import java.io.OutputStreamWriter
+import org.apache.poi.hssf.usermodel.{HSSFDataFormat, HSSFWorkbook}
+import org.apache.poi.ss.usermodel.*
+import org.supercsv.cellprocessor.ift.CellProcessor
+import org.supercsv.cellprocessor.{ConvertNullTo, FmtDate}
+import org.supercsv.io.{CsvListReader, CsvListWriter}
+import org.supercsv.prefs.CsvPreference
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.NumberDefault
+
+import java.io.*
 import java.math.BigInteger
 import java.net.URL
-import java.sql.ParameterMetaData
-import java.sql.PreparedStatement
-import java.sql.ResultSet
-import java.sql.ResultSetMetaData
-import java.sql.SQLException
-import java.text.DateFormat
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-
+import java.sql.{ResultSet, SQLException, PreparedStatement}
+import java.text.{DateFormat, SimpleDateFormat}
+import java.util.{Calendar, Date}
 import scala.collection.mutable
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 import scala.jdk.CollectionConverters.*
-
-import org.apache.poi.hssf.usermodel.HSSFDataFormat
-import org.apache.poi.hssf.usermodel.HSSFWorkbook
-import org.apache.poi.ss.usermodel.Cell
-import org.apache.poi.ss.usermodel.CellStyle
-import org.apache.poi.ss.usermodel.CellType
-import org.apache.poi.ss.usermodel.DateUtil
-import org.apache.poi.ss.usermodel.Row
-import org.apache.poi.ss.usermodel.Sheet
-import org.apache.poi.ss.usermodel.Workbook
-import org.supercsv.cellprocessor.ConvertNullTo
-import org.supercsv.cellprocessor.FmtDate
-import org.supercsv.cellprocessor.ift.CellProcessor
-import org.supercsv.io.CsvListReader
-import org.supercsv.io.CsvListWriter
-import org.supercsv.prefs.CsvPreference
-
-import torch.DataFrame
-import torch.DataFrame.NumberDefault
 object Serialization {
   private val EMPTY_DF_STRING = "[empty data frame]"
   private val ELLIPSES = "..."

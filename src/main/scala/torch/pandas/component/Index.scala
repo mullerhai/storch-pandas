@@ -15,16 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
+package torch.pandas.component
 
-import scala.collection.Set as KeySet
-import scala.collection.mutable
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
+import torch.pandas.DataFrame.RowFunction
+import torch.pandas.DataFrame
+
+import scala.collection.{mutable, Set as KeySet}
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 import scala.jdk.CollectionConverters.*
-
-import torch.DataFrame
-import torch.DataFrame.RowFunction
 object Index {
 
   def reindex[V](df: DataFrame[V], cols: Int*): DataFrame[V] = {

@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
+package torch.pandas.service
 
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
+import torch.pandas.DataFrame
+import torch.pandas.operate.SparseBitSet
 
-import torch.DataFrame
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 object Inspection {
   def types(df: DataFrame[?]): Seq[Class[?]] = {

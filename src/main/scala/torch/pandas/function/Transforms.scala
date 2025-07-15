@@ -15,19 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
-
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
+package torch.pandas.function
 
 import org.apache.commons.math3.stat.descriptive.StorelessUnivariateStatistic
-import org.apache.commons.math3.stat.descriptive.rank.Max
-import org.apache.commons.math3.stat.descriptive.rank.Min
-import org.apache.commons.math3.stat.descriptive.summary.Product
-import org.apache.commons.math3.stat.descriptive.summary.Sum
-
-import torch.DataFrame
-import torch.DataFrame.Function
+import org.apache.commons.math3.stat.descriptive.rank.{Max, Min}
+import org.apache.commons.math3.stat.descriptive.summary.{Product, Sum}
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.Function
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 /*
  * storch -- Data frames for Java

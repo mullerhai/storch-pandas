@@ -15,20 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
+package torch.pandas.component
+
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.Function
 
 import java.util
-
-import scala.collection.AbstractMap
-import scala.collection.AbstractSeq
-import scala.collection.AbstractSet
-import scala.collection.Iterator
-import scala.collection.mutable
+import scala.collection.*
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
-
-import torch.DataFrame
-import torch.DataFrame.Function
 
 object Views {
   class ListView[V](val df: DataFrame[V], val transpose: Boolean)

@@ -17,10 +17,9 @@
  */
 package torch.pandas.operate
 
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
+import torch.pandas.DataFrame
 
-import torch.DataFrame
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 object Shaping {
   def reshape[V](df: DataFrame[V], rows: Int, cols: Int): DataFrame[V] = {
     val reshaped = new DataFrame[V]

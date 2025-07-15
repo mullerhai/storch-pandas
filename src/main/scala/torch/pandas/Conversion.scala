@@ -1,4 +1,4 @@
-package torch.pandas.operate
+package torch.pandas
 
 /*
  * torch -- Data frames for Java
@@ -18,33 +18,19 @@ package torch.pandas.operate
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import java.lang.Boolean as JBoolean
-import java.lang.Double as JDouble
-import java.lang.IllegalArgumentException
-import java.lang.Long as JLong
-import java.lang.Number as JNumber
-import java.lang.String as JString // Import specific Java types
+import java.lang.{IllegalArgumentException, Boolean as JBoolean, Double as JDouble, Long as JLong, Number as JNumber, String as JString} // Import specific Java types
 // Import necessary Java classes that are still used (e.g., Date, Class, SimpleDateFormat, DateFormat)
-import java.text.DateFormat
-import java.text.ParsePosition
-import java.text.SimpleDateFormat
-import java.util.Arrays as JArrays
-import java.util.Date
-import java.util.List as JList
-import java.util.Map as JMap
-import java.util.Set as JSet // Import specific Java types with aliases if needed
-
+import java.text.{DateFormat, ParsePosition, SimpleDateFormat}
+import java.util.{Date, Arrays as JArrays, List as JList, Map as JMap, Set as JSet}
 import scala.collection.immutable.TreeSet
 // Import necessary Scala collections
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.{Function, NumberDefault}
+import torch.pandas.DataFrame.NumberDefault.{DOUBLE_DEFAULT, LONG_DEFAULT}
+
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.* // For converting Java collections if needed
-
-import torch.DataFrame
-import torch.DataFrame.Function
-import torch.DataFrame.NumberDefault
-import torch.DataFrame.NumberDefault.DOUBLE_DEFAULT
-import torch.DataFrame.NumberDefault.LONG_DEFAULT
+import scala.jdk.CollectionConverters.*
 
 object Conversion:
 

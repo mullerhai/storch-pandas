@@ -15,36 +15,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
+package torch.pandas.component
 
-import java.awt.Color
-import java.awt.Container
-import java.awt.GridLayout
-import java.util
-import java.util.Calendar
-import java.util.Date
-import javax.swing.JFrame
-import javax.swing.JScrollPane
-import javax.swing.JTable
-import javax.swing.SwingUtilities
-import javax.swing.table.AbstractTableModel
-
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.*
-
-import org.apache.commons.math3.stat.regression.SimpleRegression
-
-import com.xeiam.xchart.Chart
-import com.xeiam.xchart.ChartBuilder
-import com.xeiam.xchart.Series
-import com.xeiam.xchart.SeriesLineStyle
-import com.xeiam.xchart.SeriesMarker
 import com.xeiam.xchart.StyleManager.ChartType
-import com.xeiam.xchart.XChartPanel
+import com.xeiam.xchart.*
+import org.apache.commons.math3.stat.regression.SimpleRegression
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.PlotType
 
-import torch.DataFrame
-import torch.DataFrame.PlotType
+import java.awt.{Color, Container, GridLayout}
+import java.util
+import java.util.{Calendar, Date}
+import javax.swing.{JFrame, JScrollPane, JTable, SwingUtilities}
+import javax.swing.table.AbstractTableModel
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.jdk.CollectionConverters.*
 
 object Display {
   def draw[C <: Container, V](

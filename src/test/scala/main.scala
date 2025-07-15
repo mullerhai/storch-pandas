@@ -1,8 +1,9 @@
-import torch.DataFrame
-import torch.DataFrame.Axis.{COLUMNS, ROWS}
-import torch.DataFrame.JoinType
-import torch.DataFrame.PlotType.{AREA, BAR, GRID, GRID_WITH_TREND, LINE, LINE_AND_POINTS, SCATTER, SCATTER_WITH_TREND}
-
+import torch.pandas.DataFrame.Axis.{COLUMNS, ROWS}
+import torch.pandas.DataFrame.JoinType
+import torch.pandas.DataFrame.PlotType.{AREA, BAR, GRID, GRID_WITH_TREND, LINE, LINE_AND_POINTS, SCATTER, SCATTER_WITH_TREND}
+import torch.numpy.matrix.NDArray
+import torch.numpy.serve.TorchNumpy
+import torch.pandas.DataFrame
 import scala.collection.immutable.Seq
 import scala.collection.{mutable, Set as KeySet}
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
@@ -27,6 +28,9 @@ def main(): Unit =
   // to see how IntelliJ IDEA suggests fixing it.
 //    (1 to 5).map(println)
 
+    val ndArray = TorchNumpy.rand(Array(6, 10))
+    val dfk = DataFrame.fromNumpyNDArray[Double](ndArray)
+    dfk.show()
     val cols: Seq[String] = Seq("category", "name", "value","version","age","score")
     val rows: Seq[String] = Seq("row1", "row2", "row3", "row4", "row5", "row6")
     val col1Data = Seq("test", "release", "alpha", "beta", "gama", "peter")
@@ -47,8 +51,10 @@ def main(): Unit =
     val gp = df.groups
     val df2 = df.drop(Seq(2),true)
 
+    df.transpose.writeCsv("record.csv")
 //    println(df.rows)
     println(df.row("row4"))
+    println(s"df.col(value) ${df.col("value")}")
     println(df.flatten)
     println(df.index)
     println(df.columns)
@@ -92,7 +98,7 @@ def main(): Unit =
 
 //    ndf.show()
     println("try to concat....")
-    ndf.reshape(3, 2)
+//    ndf.reshape(3, 2)
 //    println(df.merge(df))
 //    println(df.concat(df))
 //    println(df.heads(2).show())
@@ -118,6 +124,8 @@ def main(): Unit =
 //    println(index)
 //    println(colz)
     println(df.columns.names.mkString(","))
+    ndArray.printArray()
+    dfk.writeCsv("ndPadas.csv")
 //    df.plot()
 
 //    println(df.columns.get("value"))

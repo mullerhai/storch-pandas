@@ -33,13 +33,13 @@ import org.mozilla.javascript.NativeJavaObject
 import org.mozilla.javascript.ScriptRuntime
 import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.ScriptableObject
-import torch.DataFrame
-import torch.DataFrame.Aggregate
-import torch.DataFrame.JoinType
-import torch.DataFrame.KeyFunction
-import torch.DataFrame.PlotType
-import torch.DataFrame.Predicate
-import torch.DataFrame.RowFunction
+import torch.pandas.DataFrame.Aggregate
+import torch.pandas.DataFrame.JoinType
+import torch.pandas.DataFrame.KeyFunction
+import torch.pandas.DataFrame.PlotType
+import torch.pandas.DataFrame.Predicate
+import torch.pandas.DataFrame.RowFunction
+import torch.pandas.DataFrame
 import torch.pandas.operate.Grouping
 
 import scala.language.postfixOps

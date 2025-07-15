@@ -15,15 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package torch.pandas.operate
+package torch.pandas.service
+
+import torch.pandas.DataFrame.Predicate
+import torch.pandas.DataFrame
+import torch.pandas.component.{BlockManager, Index}
+import torch.pandas.operate.SparseBitSet
 
 import java.util
-
-import scala.collection.mutable.LinkedHashMap
-import scala.collection.mutable.ListBuffer
-
-import torch.DataFrame
-import torch.DataFrame.Predicate
+import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 object Selection {
   def select[V](
