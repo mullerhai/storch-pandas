@@ -619,7 +619,7 @@ class DataFrameAdapter extends ScriptableObject {
 
   def jsFunction_col(column: Int): Seq[AnyRef] = df.colInt(column)
 
-  def jsFunction_row(row: Int): Seq[AnyRef] = df.row_index(row).asScala.toSeq
+  def jsFunction_row(row: Int): Seq[AnyRef] = df.row_index(row).toSeq //asScala.toSeq
 
   def jsFunction_select(predicate: Function): DataFrameAdapter = {
     @SuppressWarnings(Array("unchecked"))

@@ -117,7 +117,7 @@ object Combining:
 
           case existingColumnName => // If the existing column name is not a List
             // Rename the existing column in initialColumns
-            initialColumns(index) = s"$existingColumnName _${
+            initialColumns(index) = s"${existingColumnName}_${
                 if (how != JoinType.RIGHT) "left" else "right"
               }"
 
@@ -126,7 +126,7 @@ object Combining:
             // Note: In Scala, 'column' is a val, so we can't reassign it.
             // We'll create a new value for the potentially modified column name to add.
             val modifiedColumnName =
-              s"$column _${if (how != JoinType.RIGHT) "right" else "left"}"
+              s"${column}_${if (how != JoinType.RIGHT) "right" else "left"}"
             initialColumns.append(modifiedColumnName) // Add the potentially modified column name
         }
       else
@@ -160,12 +160,13 @@ object Combining:
           List.fill[V](secondaryColsSize)(null.asInstanceOf[V]) // Create a Scala List of nulls
         }
         tmp.addAll(secondaryRow) // Add the secondary row (or list of nulls)
-
+        println(s"INNER key ${key} value-> ${tmp.mkString(",")} df index -> ${df.getIndex.mkString(",")}")
         // Append the combined row to the result DataFrame
         df.append(key, tmp.toList) // Convert Scala ListBuffer to Scala List, then to Java List
+        println(s"INNER append after key ${key} value-> ${tmp.mkString(",")} df index -> ${df.getIndex.mkString(",")}")
       }
     }
-
+    println(s"Inner finish df index -> ${df.getIndex.mkString(",")} ")
     // Handle OUTER join: add rows from the secondary map that were not in the primary map
     if (how == JoinType.OUTER) {
       val (outerSecondaryMap, outerPrimaryMap) = how match {
@@ -187,12 +188,12 @@ object Combining:
 
           // Add the row from the secondary map
           tmp.addAll(secondaryRow)
-
+          println(s"outer key ${key} value-> ${tmp.mkString(",")} ")
           // Append the combined row to the result DataFrame
           df.append(key, tmp.toList) // Convert Scala ListBuffer to Scala List, then to Java List
         }
     }
-
+    println(s"merge result df index -> ${df.getIndex.mkString(",")} ")
     df // Return the resulting DataFrame
   }
 
@@ -253,18 +254,15 @@ object Combining:
     // Get non-numeric columns as Scala Sets
     val leftNonNumericCols = left.nonnumeric.getColumns.toSet
     val rightNonNumericCols = right.nonnumeric.getColumns.toSet
-
     // Find the intersection of non-numeric columns
     val intersection = leftNonNumericCols.intersect(rightNonNumericCols)
-
     // Convert the Scala Set to an Array[Any] (corresponds to Object[] in Java)
     val columnsArray: Array[AnyRef] = intersection.toArray
-
-    println("try to merge ...... join ")
+    println(s"try to merge ...... join the all column -> ${columnsArray.mkString(",")} ")
     // Reindex both DataFrames to keep only the intersection columns and perform the join
     join(
-      left.reindex(columnsArray.asInstanceOf[Array[AnyRef]]),
-      right.reindex(columnsArray.asInstanceOf[Array[AnyRef]]),
+      left.reindex(columnsArray),
+      right.reindex(columnsArray),
       how,
       null,
     )
@@ -386,6 +384,7 @@ object Combining:
             val value = df.getFromIndex(r, cIndex) // Get value from current DataFrame
             println("for 2 inner inner value: " + value)
             combined.set(offset + r, newcIndex, value) // Set value in combined DataFrame at the correct offset and column
+            println(s"for 2 inner inner set out combined: row ${ offset + r} col ${newcIndex } value ${value} " + combined)
           }
       }
       // Update the row offset for the next DataFrame

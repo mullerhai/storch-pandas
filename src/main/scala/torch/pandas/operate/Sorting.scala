@@ -55,19 +55,24 @@ object Sorting {
   ): DataFrame[V] = {
     val sorted = new DataFrame[V](df.getColumns.map(_.toString)*)
     val cmp = new Comparator[AnyRef]() {
-      override def compare(r1: AnyRef, r2: AnyRef): Int = comparator
-        .compare(df.row(r1), df.row(r2))
+      override def compare(r1: AnyRef, r2: AnyRef): Int = {
+        val row1 = df.row_index(r1.asInstanceOf[Int])
+        val row2 = df.row_index(r2.asInstanceOf[Int])
+        comparator
+          .compare(row1, row2)
+      }
     }
     val rows = new Array[AnyRef](df.length)
     for (r <- 0 until df.length) rows(r) = r.asInstanceOf[AnyRef]
 
     java.util.Arrays.sort(rows, cmp)
     val labels = new ListBuffer[AnyRef]() // df.getIndex)
+    df.getIndex.foreach(labels += _)
     for (r <- rows) {
       val label =
         if (r.asInstanceOf[Int] < labels.size) labels(r.asInstanceOf[Int])
         else r
-      sorted.append(label, df.row(r))
+      sorted.append(label, df.row_index(r.asInstanceOf[Int]))
     }
     sorted
   }

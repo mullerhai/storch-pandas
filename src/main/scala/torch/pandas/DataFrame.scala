@@ -915,7 +915,7 @@ class DataFrame[V](
     *   a new data frame with index specified
     */
   def reindex(cols: Array[Int], drop: Boolean): DataFrame[V] = {
-    println(s"dataframe reindex cols ${cols.mkString(",")}")
+    println(s"dataframe reindex inner Array[Int] cols ${cols.mkString(",")}")
     val df = Index.reindex(this, cols*)
     if (drop) df.drop(cols.toSeq) else df
   }
@@ -968,7 +968,8 @@ class DataFrame[V](
     * @return
     *   a new data frame with index specified
     */
-  def reindex(cols: Array[AnyRef], drop: Boolean): DataFrame[V] =
+  def reindex(cols: Array[AnyRef], drop: Boolean = false): DataFrame[V] =
+    println(s"dataframe reindex outer cols: Array[AnyRef] -> cols ${cols.toSeq.mkString(",")}")
     reindex(columns.indices(cols), drop)
 
   /** Re-index the rows of the data frame using the specified column names and
@@ -984,10 +985,11 @@ class DataFrame[V](
     * @return
     *   a new data frame with index specified
     */
-  def reindex(cols: AnyRef*): DataFrame[V] = {
-    val colInts = columns.indices(cols)
-    reindex(colInts, true)
-  }
+//  def reindex(cols: AnyRef): DataFrame[V] = {
+//    println(s"dataframe reindex outer cols: AnyRef* -> cols ${cols.toSeq.mkString(",")}")
+//    val colInts = columns.indices(cols.asInstanceOf[Array[Seq[AnyRef]]].flatten.toSeq)
+//    reindex(colInts, true)
+//  }
 
   /** Return a new data frame with the default index, rows names will be reset
     * to the string value of their Int index.
@@ -1111,8 +1113,11 @@ class DataFrame[V](
     * @return
     *   the result of the join operation as a new data frame
     */
-  final def join(other: DataFrame[V]): DataFrame[V] =
-    join(other, DataFrame.JoinType.LEFT, null)
+  final def join(other: DataFrame[V]): DataFrame[V] = {
+    val df = join(other, DataFrame.JoinType.LEFT, null)
+    println(s"Dataframe finish Join df index -> ${df.getIndex.mkString(",")} ")
+    df
+  }
 
   /** Return a new data frame created by performing a join of this data frame
     * with the argument using the specified join type and using the row indices
@@ -1160,7 +1165,11 @@ class DataFrame[V](
       other: DataFrame[V],
       join: DataFrame.JoinType,
       on: DataFrame.KeyFunction[V],
-  ): DataFrame[V] = Combining.join(this, other, join, on)
+  ): DataFrame[V] = {
+    val df = Combining.join(this, other, join, on)
+    println(s"Dataframe Inner Join finish df index -> ${df.getIndex.mkString(",")} ")
+    df
+  }
 
   final def join_func(
       other: DataFrame[V],
@@ -1474,12 +1483,12 @@ class DataFrame[V](
     */
 //  def col(column: Int):  Seq[V] = col(columns.get(column))
 
-  def col(column: AnyRef): Seq[V] = col_with_view(columns.get(column)).asScala.toSeq
+  def col(column: AnyRef): Seq[V] = col_with_view(columns.get(column)).toSeq
 
   def colInt(column: Int, index:Boolean = true) =
     println("DataFrame.col: column index:  " + column)
     val views = new Views.SeriesListView[V](this, column, true)
-    views.asScala.toSeq
+    views.toSeq
 
   /** Return a data frame column as a list.
     *
@@ -1512,7 +1521,7 @@ class DataFrame[V](
   def row(row: AnyRef): Seq[V] = {
     val indexNum = index.get(row)
     val view = new Views.SeriesListView[V](this, indexNum, false)
-    view.asScala.toSeq
+    view.toSeq
 //    val indexValueSeq = row_index(indexNum).asScala
 //    indexValueSeq.toSeq
   }
@@ -1533,7 +1542,7 @@ class DataFrame[V](
     println(s"Dataframe row_index method row: ${row}")
     val view = new Views.SeriesListView[V](this, row, false)
     println(s"Dataframe row_index method view: ${view}")
-    view
+    view.toSeq
   }
 
   /** Select a subset of the data frame using a predicate function.
@@ -1654,7 +1663,7 @@ class DataFrame[V](
   def transpose = new DataFrame[V](
     columns.names,
     index.names,
-    new Views.ListView[V](this, true).asScala.map(_.asScala.toSeq).toList,
+    new Views.ListView[V](this, true).map(_.toSeq).toList,
   )
 
   /** Apply a function to each value in the data frame.
@@ -1675,8 +1684,8 @@ class DataFrame[V](
   def apply[U](function: DataFrame.Function[V, U]) = new DataFrame[U](
     index.names,
     columns.names,
-    new Views.TransformedView[V, U](this, function, false).asScala
-      .map(_.asScala.toSeq).toList,
+    new Views.TransformedView[V, U](this, function, false)
+      .map(_.toSeq).toList,
   )
 
   def transform[U](transform: DataFrame.RowFunction[V, U]): DataFrame[U] = {
@@ -1794,7 +1803,7 @@ class DataFrame[V](
     *   the array
     */
   def toArray[U <: V](array: Array[U]): Array[U] = {
-    val view = new Views.FlatView[V](this).asScala.toBuffer[V]
+    val view = new Views.FlatView[V](this).toBuffer[V]
       .asInstanceOf[mutable.Buffer[U]]
     view.addAll(array.toSeq)
     view.asInstanceOf[Array[U]]
@@ -1930,7 +1939,17 @@ class DataFrame[V](
     *   the grouped data frame
     */
   @Timed
-  def groupBy(cols: AnyRef*): DataFrame[V] = groupBy(columns.indices(cols))
+  def groupBy(cols: AnyRef*): DataFrame[V] = {
+    println(s"data groupBy ${cols.mkString(",")}")
+    val indices = columns.indices(cols)
+    groupBy_index(indices*)
+  }
+
+  def groupBy(cols: AnyRef, index:Boolean = true): DataFrame[V] = {
+//    println(s"data groupBy ${cols.mkString(",")}")
+    val indices = columns.indices(cols.asInstanceOf[Array[Int]].map(_.toString))
+    groupBy_index(indices *)
+  }
 
   /** Group the data frame rows by the specified columns.
     *
@@ -2108,18 +2127,28 @@ class DataFrame[V](
   def cummax: DataFrame[V] = groups.apply(this, new Transforms.CumulativeMax)
 
   @Timed
-  def describe: DataFrame[V] = Aggregation
-    .describe(groups.apply(this, new Aggregation.Describe[V]))
+  def describe: DataFrame[V] = {
+    val df = this.numeric.asInstanceOf[DataFrame[V]]
+    val conv = groups.apply(df, new Aggregation.Describe[V])
+    Aggregation.describe(conv)
+  }
 
-  def pivot(row: AnyRef, col: AnyRef, values: AnyRef*): DataFrame[V] =
-    pivot(List(row), List(col), List(values))
+  def pivot(row: AnyRef, col: AnyRef, values: AnyRef*): DataFrame[V] = {
+    pivot(List(row), List(col), values)
+  }
 
   def pivot(
       rows: Seq[AnyRef],
       cols: Seq[AnyRef],
       values: Seq[AnyRef],
-  ): DataFrame[V] =
-    pivot(columns.indices(rows), columns.indices(cols), columns.indices(values))
+  ): DataFrame[V] = {
+
+    val rowsArray = columns.indices(rows)
+    val colsArray = columns.indices(cols)
+    println(s"DataFrame Pivoting -> pivot rows -> ${rows.mkString(",")} | ${rowsArray.mkString(",")} cols-> ${cols.mkString(",")} ${colsArray.mkString(",")} values ${values.mkString(",")}")
+    val valuesArray = columns.indices(values)//.asInstanceOf[Array[AnyRef]])  =Array[Int](2,3) //
+    pivot(rowsArray, colsArray, valuesArray)
+  }
 
   def pivot(row: Int, col: Int, values: Int*): DataFrame[V] =
     pivot(Array[Int](row), Array[Int](col), values)
@@ -2129,7 +2158,10 @@ class DataFrame[V](
       rows: Array[Int],
       cols: Array[Int],
       values: Array[Int],
-  ): DataFrame[V] = Pivoting.pivot(this, rows, cols, values)
+  ): DataFrame[V] = {
+    println(s"DataFrame Pivoting -> pivot rows ${rows.mkString(",")} cols ${cols.mkString(",")} values ${values.mkString(",")}")
+    Pivoting.pivot(this, rows, cols, values)
+  }
 
   @Timed
   def pivot[U](
@@ -2231,17 +2263,17 @@ class DataFrame[V](
   override def iterator: Iterator[List[V]] = iterrows
 
   def iterrows: Iterator[List[V]] = new Views.ListView[V](this, true).iterator
-    .asScala.map(_.asScala.toList).iterator
+    .map(_.toList).iterator
 
   def itercols: Iterator[List[V]] = new Views.ListView[V](this, false).iterator
-    .asScala.map(_.asScala.toList).iterator
+    .map(_.toList).iterator
 
   def itermap: Iterator[Map[Any, V]] = new Views.MapView[V](this, true).iterator
-    .asScala.map(_.asScala.toMap).iterator
+    .map(_.toMap).iterator
 
 //  def itermap:  Iterator[LinkedHashMap[AnyRef, V]] = new Views.MapView[V](this, true).iterator
 
-  def itervalues: Iterator[V] = new Views.FlatView[V](this).iterator.asScala
+  def itervalues: Iterator[V] = new Views.FlatView[V](this).iterator
 
   /** Cast this data frame to the specified type.
     *
@@ -2272,7 +2304,7 @@ class DataFrame[V](
     val names = index.names.iterator
     for (r <- 0 until len) {
       val name = if (names.hasNext) names.next else r
-      m.put(name, row_index(r).asScala.toSeq)
+      m.put(name, row_index(r).toSeq)
     }
     m
   }
@@ -2305,7 +2337,7 @@ class DataFrame[V](
     for (r <- 0 until len) {
       for (c <- cols) key.append(data.get(c, r))
       if (!seen.contains(key.toSeq)) {
-        unique.append(row_index(r).asScala.toSeq)
+        unique.append(row_index(r).toSeq)
         seen.add(key.toSeq)
       }
       key.clear()

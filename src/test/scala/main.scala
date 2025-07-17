@@ -1,9 +1,10 @@
 import torch.pandas.DataFrame.Axis.{COLUMNS, ROWS}
-import torch.pandas.DataFrame.JoinType
+import torch.pandas.DataFrame.{JoinType, PlotType}
 import torch.pandas.DataFrame.PlotType.{AREA, BAR, GRID, GRID_WITH_TREND, LINE, LINE_AND_POINTS, SCATTER, SCATTER_WITH_TREND}
 import torch.numpy.matrix.NDArray
 import torch.numpy.serve.TorchNumpy
 import torch.pandas.DataFrame
+
 import scala.collection.immutable.Seq
 import scala.collection.{mutable, Set as KeySet}
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
@@ -33,24 +34,59 @@ def readNumpy(): Unit = {
 
 @main
 def main(): Unit = {
-    val cols: Seq[String] = Seq("category", "name", "value", "version", "age", "score")
+//    val cols: Seq[String] = Seq("category", "namenick", "value", "version", "age", "score")
+//    val rows: Seq[String] = Seq("row1", "row2", "row3", "row4", "row5", "row6")
+////    val col1Data = Seq("test", "release", "alpha", "beta", "gama", "peter")
+//    val col1Data = Seq("test", "release", "test", "beta", "gama", "gama")
+//    val col2Data = Seq("one", "two", "three", "four", "five", "six")
+//    val col3Data = Seq(14, 25, Float.NaN, 0, 52, 67)
+//    val col4Data = Seq(3, 5, Float.NaN, 0, 9, 10)
+//    val col5Data = Seq(10, 25, 32, 45, 25, 60)
+//    val col7Data = Seq(14, 25, 36, 48, 52, 67)
+//    val col9Data = Seq(3, 5, 7, 8, 9, 10)
+//    val col8Data = Seq("5one", "7two", "0three", "6one", "3two", "2three") //
+//    val col6Data = Seq(10, 20, 30, 40, 50, 60)
+//    val data = List(col1Data, col2Data, col3Data, col4Data, col6Data, col8Data)
+
+    val cols: Seq[String] = Seq("category", "name", "value", "version")
     val rows: Seq[String] = Seq("row1", "row2", "row3", "row4", "row5", "row6")
-    val col1Data = Seq("test", "release", "alpha", "beta", "gama", "peter")
-    val col2Data = Seq("one", "two", "three", "four", "five", "six")
-    val col3Data = Seq(14, 25, Float.NaN, 0, 52, 67)
-    val col4Data = Seq(3, 5, Float.NaN, 0, 9, 10)
-    val col5Data = Seq(10, 25, 32, 45, 53, 60)
-    val col7Data = Seq(14, 25, 36, 48, 52, 67)
-    val col9Data = Seq(3, 5, 7, 8, 9, 10)
-    val col8Data = Seq("5one", "7two", "0three", "6one", "3two", "2three") //
-    val col6Data = Seq(10, 20, 30, 40, 50, 60)
-    val data = List(col1Data, col2Data, col3Data, col4Data, col6Data, col8Data)
+    val col4Data = Seq("test", "release", "alpha", "beta", "gama", "peter")
+    val col5Data = Seq("one", "two", "three", "four", "five", "six")
+    //  val col6Data = Seq(Float.NaN,Float.NaN,Float.NaN,Float.NaN,Float.NaN,Float.NaN)// Float.NaN, 48, 52, 67)
+    val col1Data = Seq(14, 25, Float.NaN, 48, 52, 67)
+    val col2Data = Seq(3, 5, Float.NaN, 0, 9, 10)
+    val col3Data = Seq(10, 25, 32, 45, 53, 60)
+    val data = List(col1Data, col2Data, col4Data, col5Data)
     val df = new DataFrame(rows, cols.asInstanceOf[Seq[AnyRef]], data)
-    println(df.describe)
-//    val dff = df.merge(df)
-//    dff.show()
+
+    df.sortBy("category").show()
+    println(s"df old columns ${df.getColumns.mkString(",")}") //dff.show()
+    println(s"df old index ${df.getIndex.mkString(",")}")
+//    df.convert(DataFrame.NumberDefault.DOUBLE_DEFAULT,"one")//.show()
+//    df.fillna("kk")//.show()
+//    df.show()
+//    println(df.describe)
+//    val dff1 = df.concat(df)  //ok
+
+//    val dff2 = df.join(df, JoinType.LEFT) //ok
+//    val dff3 = df.merge(df, JoinType.LEFT) //ok
+//    println(s"df columns ${dff3.getColumns.mkString(",")}") //dff.show()
+//    println(s"df index ${dff3.getIndex.mkString(",")}")
+//    println(df.percentChange)
+//    df.plot(PlotType.GRID)
+//    val du = df.groupBy("category").sum //.show()
+
+    val pivotedDf = df.pivot("version", "category", "value")
+    println("Pivoted DataFrame:")
+
+//    pivotedDf.show()
+//    du.sortBy_index(3).show()
+//    println(s"df columns ${df.getColumns.mkString(",")}")
+
+//    dff3.show()
 }
 
+//@main
 def mains(): Unit =
 //    readNumpy()
   // TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
@@ -94,21 +130,24 @@ def mains(): Unit =
 //    println(df.rows)
     println(df.row("row4"))
     println(s"df.col(value) ${df.col("value")}")
+    println(s"dfss kkkkkkkkkk")
     println(df.flatten)
     println(df.index)
     println(df.columns)
     println(df.data)
     println(df.groups)
+    println(s"dfss 3333333")
     val ff = df.dropna(COLUMNS)
     val ff3 = df.dropna(ROWS)
     //    println(ff.show())
     ff3.fillna(100)//.show()
     df.kurt
+    println("try to dropna....")
 //    df.unique
     df.percentile(0.5)
     df.median
     df.stddev
-
+    println("try to var....")
     println(df.`var`)
     println(df.cov)
     println(df.cummax)
@@ -140,9 +179,9 @@ def mains(): Unit =
     println("try to concat....")
 //    println(df.describe)
 //    ndf.reshape(3, 2)
-    val doss = df.merge(df)
+//    val doss = df.merge(df)
 //    val dp =df.concat(df)
-    doss.show()
+//    doss.show()
 //    println(df.heads(2).show())
 
 

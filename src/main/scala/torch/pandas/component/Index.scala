@@ -49,7 +49,7 @@ object Index {
         }
       }
     }
-    val viewData = new Views.ListView[V](df, false).asScala
+    val viewData = new Views.ListView[V](df, false).toSeq // .asScala
       .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
       transformed.colInt(0).asInstanceOf[Seq[AnyRef]],
@@ -78,7 +78,7 @@ object Index {
 //    for (i <- 0 until df.length) {
 //      index.add(i)
 //    }
-    val viewData = new Views.ListView[V](df, false).asScala
+    val viewData = new Views.ListView[V](df, false).toSeq //asScala
       .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
       index.asInstanceOf[Seq[AnyRef]],

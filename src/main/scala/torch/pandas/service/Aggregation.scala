@@ -138,9 +138,15 @@ object Aggregation {
       for value <- values do
         if value != null then
           val numValue = value match
-            case b: Boolean => if b then 1 else 0
+            case b: Boolean => if b then 1.asInstanceOf[Number] else 0.asInstanceOf[Number]
             case _ => value.asInstanceOf[Number]
-          stat.addValue(numValue.asInstanceOf[Double])
+          stat.addValue(numValue.doubleValue())
+//      for (i <- 0 until values.size) {
+//        val `val` = values.get(i)
+//        if (`val` != null) {
+//          if (`val`.isInstanceOf[Boolean]) `val` = if (classOf[Boolean].cast(`val`)) 1
+//          else 0
+//          stat.addValue(classOf[Number].cast(`val`).doubleValue)
 //      for (value <- values) {
 //        if (value != null) {
 //          if (value.isInstanceOf[Boolean]) value = if (classOf[Boolean].cast(value)) 1
@@ -152,7 +158,7 @@ object Aggregation {
     }
   }
 
-  private def name(df: DataFrame[?], row: Any, stat: AnyRef) =
+  private def name(df: DataFrame[?], row: AnyRef, stat: AnyRef) =
     // df index size > 1 only happens if the aggregate describes a grouped data frame
     if (df.getIndex.size > 1) List(row, stat) else stat
 
@@ -160,10 +166,12 @@ object Aggregation {
   def describe[V](df: DataFrame[V]): DataFrame[V] = {
     val desc = new DataFrame[V]
 
+    println(s"describe df->>>>>>>>>>>>>>>>> ${df.getColumns.mkString(", ")}")
     for (col <- df.getColumns)
 
       for (row <- df.getIndex) {
-        val value = df.getFromIndex(row.asInstanceOf[Int], col.asInstanceOf[Int])
+        println(s"describe row->>>>>>>>>>>>>>>>> ${row} col->>>>>>>>>>>>>>>>> ${col}")
+        val value = df.get(row.asInstanceOf[AnyRef], col)
         if (value.isInstanceOf[StatisticalSummary]) {
           if (!desc.getColumns.contains(col)) {
             desc.add(col)

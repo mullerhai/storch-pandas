@@ -18,7 +18,8 @@ package torch.pandas
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import java.lang.{IllegalArgumentException, Boolean as JBoolean, Double as JDouble, Long as JLong, Number as JNumber, String as JString} // Import specific Java types
+import java.lang.{IllegalArgumentException, Boolean as JBoolean, Double as JDouble, Long as JLong, Number as JNumber, String as JString}
+import scala.util.control.Breaks.{break, breakable} // Import specific Java types
 // Import necessary Java classes that are still used (e.g., Date, Class, SimpleDateFormat, DateFormat)
 import java.text.{DateFormat, ParsePosition, SimpleDateFormat}
 import java.util.{Date, Arrays as JArrays, List as JList, Map as JMap, Set as JSet}
@@ -89,6 +90,7 @@ object Conversion:
           new DoubleConversion[V](),
           new BooleanConversion[V](),
           new DateTimeConversion[V](),
+          new StringConversion[V](),
         )
       case NumberDefault.DOUBLE_DEFAULT =>
         // Use Scala List instead of Arrays.asList
@@ -97,6 +99,7 @@ object Conversion:
           new LongConversion[V](),
           new BooleanConversion[V](),
           new DateTimeConversion[V](),
+          new StringConversion[V](),
         )
       case _ => throw new IllegalArgumentException(
           "Number default contains an Illegal value",
@@ -106,24 +109,43 @@ object Conversion:
     val naConverter = new NAConversion[V](naString)
     val rows = df.length // Assuming length() is row count
     val cols = df.size // Assuming size() is column count
-
+    for (c <- 0 until cols) {
+      breakable {
+        for conv <- converters do {
+          var all = true
+          for (r <- 0 until rows) {
+            if (conv.apply(df.getFromIndex(r, c)) == null && naConverter.apply(df.getFromIndex(r, c)) != null) {
+              all = false
+              break
+            }
+          }
+          if (all) {
+            conversions.put(c, conv)
+            println(s"Conversion convert 1 for  COL-> ${c}  out conv: ${conv} ")
+            break
+          }
+        }
+      }
+    }
     // find conversions
-    for (c <- 0 until cols)
-      // Use Scala's exists or find for cleaner check
-      converters.find(conv =>
-        // Check if all values in the column can be converted by this converter
-        (0 until rows).forall { r =>
-          val value = df.getFromIndex(r, c)
-          // A value is convertible if conv.apply(value) is not null OR
-          // if it is null, it must be convertible by the NA converter (i.e., it's the NA string)
-          conv.apply(value.asInstanceOf[V]) != null ||
-          naConverter.apply(value.asInstanceOf[V]) != null
-        },
-      ).foreach(conv =>
-        // If a suitable converter is found, add it to the map
-        conversions.put(c, conv),
-      )
-
+//    for (c <- 0 until cols)
+//      // Use Scala's exists or find for cleaner check
+//      converters.find(conv =>
+//        // Check if all values in the column can be converted by this converter
+//        (0 until rows).forall { r =>
+//          val value = df.getFromIndex(r, c)
+////          println(s"Conversion convert 1 for 1 r-> ${r} c-> ${c} out value: " + value)
+//          // A value is convertible if conv.apply(value) is not null OR
+//          // if it is null, it must be convertible by the NA converter (i.e., it's the NA string)
+//          conv.apply(value.asInstanceOf[V]) != null ||
+//          naConverter.apply(value.asInstanceOf[V]) != null
+//        },
+//      ).foreach(conv =>
+//        // If a suitable converter is found, add it to the map
+//        conversions.put(c, new StringConversion[V]())
+//        println(s"Conversion convert 1 for  COL-> ${c}  out conv: ${conv} " ),
+//      )
+    println("Conversion convert 1 for 1 out conversions: " + conversions.toMap)
     // apply conversions
     convert(df, conversions.toMap, naString) // Convert mutable map to immutable for the next call
   }
@@ -185,17 +207,22 @@ object Conversion:
     for (c <- 0 until cols) {
       // Use get from Scala Map which returns Option
       val convOption = conversions.get(c)
-
+      println(s"Conversion convert 2 for 1 c ${c} out convOption: ${convOption} ")
       for (r <- 0 until rows) {
         val originalValue = df.getFromIndex(r, c)
         val convertedValue: Any = convOption match {
           case Some(conv) =>
             // Apply the specific converter if found
-            conv.apply(originalValue.asInstanceOf[V]) // Cast result to V or Null
+            val convz = conv.apply(originalValue.asInstanceOf[V]) // Cast result to V or Null
+            println(s"Conversion convert 2 some for 1 c ${c} out convz ${convz} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
+            convz
           case None =>
             // If no specific converter, apply the NA converter
-            naConverter.apply(originalValue)
+            val convz = naConverter.apply(originalValue)
+            println(s"Conversion convert 2 None  for 1 c ${c} out convz ${convz} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
+            convz
         }
+        println(s"Conversion convert 2 df set  row ${r} col ${c} out convertedValue ${convertedValue.asInstanceOf[V]} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
         df.set(r, c, convertedValue.asInstanceOf[V]) // Set the converted value (might be null)
       }
     }

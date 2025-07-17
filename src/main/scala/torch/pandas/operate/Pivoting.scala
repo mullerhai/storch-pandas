@@ -24,7 +24,7 @@ import torch.pandas.service.Aggregation.Unique
 
 import java.util
 import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
 import scala.jdk.CollectionConverters.*
 
 object Pivoting {
@@ -34,13 +34,15 @@ object Pivoting {
       cols: Array[Int],
       values: Array[Int],
   ): DataFrame[V] = {
-    val grouped = df.groupBy(rows)
+    println(s"DataFrame Pivoting ->groupBy  pivot rows ${rows.mkString(",")} cols ${cols.mkString(",")} values ${values.mkString(",")}")
+    val grouped = df.groupBy_index(rows*)
     val exploded = grouped.explode
     val aggregates = new mutable.LinkedHashMap[Int, Aggregation.Unique[V]]
 
-    for (entry <- exploded.toSeq) exploded.put(entry._1, entry._2.groupBy(cols))
+    for (entry <- exploded.toSeq) exploded.put(entry._1, entry._2.groupBy_index(cols*))
     for (v <- values) aggregates.put(v, new Aggregation.Unique[V])
-    pivot(exploded, aggregates, grouped.groups.getColumns())
+    val groupCols = grouped.groups.getColumns()
+    pivot(exploded, aggregates, groupCols)
   }
 
   def pivot[I, O](
@@ -55,9 +57,85 @@ object Pivoting {
     for (entry <- exploded) exploded.put(entry._1, entry._2.groupBy(cols))
     pivot(exploded, values, grouped.groups.getColumns())
   }
-
-  @SuppressWarnings(Array("unchecked"))
+// columns: mutable.LinkedHashSet[Int]
   private def pivot[I, O](
+                           grouped: mutable.LinkedHashMap[AnyRef, DataFrame[I]],
+                           values: mutable.LinkedHashMap[Int, ? <: Aggregate[I, O]],
+                           columns: Set[Int]
+                         ): DataFrame[O] = {
+    val pivotCols = mutable.LinkedHashSet.empty[AnyRef]
+    val pivotData = mutable.LinkedHashMap.empty[AnyRef, mutable.LinkedHashMap[AnyRef, mutable.ListBuffer[I]]]
+    val pivotFunctions = mutable.LinkedHashMap.empty[AnyRef, Aggregate[I, O]]
+    val colNames = new ListBuffer[AnyRef]() //
+    grouped.values.iterator.next.getColumns.foreach(colNames.append(_))
+//    val colNames = mutable.ListBuffer.from(grouped.values.head.columns())
+
+    // allocate row -> column -> data maps
+    for ((rowKey, rowDf) <- grouped) {
+      val rowData = mutable.LinkedHashMap.empty[AnyRef, mutable.ListBuffer[I]]
+      for (c <- columns) {
+        val colName = colNames(c)
+        rowData(colName) = mutable.ListBuffer.empty[I]
+        pivotCols.add(colName)
+      }
+      for (colKey <- rowDf.groups.keys()) {
+        for (c <- values.keys) {
+          val colName = name(colKey, colNames(c), values)
+          rowData(colName) = mutable.ListBuffer.empty[I]
+          pivotCols.add(colName)
+          pivotFunctions(colName) = values(c)
+        }
+      }
+      pivotData(rowKey) = rowData
+    }
+
+    // collect data for row and column groups
+    for ((rowKey, rowDf) <- grouped) {
+      val rowData = pivotData(rowKey)
+      val byCol = rowDf.explode
+      for ((colKey, colDf) <- byCol) {
+        // add columns used as pivot rows
+        for (c <- columns) {
+          val colName = colNames(c)
+          val colData = rowData(colName)
+          // optimization, only add first value
+          // since the values are all the same (due to grouping)
+          colData += colDf.getFromIndex(0, c)
+        }
+
+        // add values for aggregation
+        for (c <- values.keys) {
+          val colName = name(colKey, colNames(c), values)
+          val colData = rowData(colName)
+          colData ++= colDf.colInt(c.toInt)
+        }
+      }
+    }
+
+    val pivotEmptyData: List[Seq[O]] = ListBuffer[Seq[O]]().toList
+    // iterate over row, column pairs and apply aggregate functions
+    val pivot = new DataFrame[O](pivotData.keys.toSeq, pivotCols.toSeq, pivotEmptyData)
+    for {
+      col <- pivot.getColumns
+      row <- pivot.getIndex
+    } {
+      pivotData.get(row).flatMap(_.get(col)) match {
+        case Some(data) =>
+          pivotFunctions.get(col) match {
+            case Some(func) =>
+              pivot.set(row, col, func.apply(data.toSeq).asInstanceOf[O])
+            case None =>
+              pivot.set(row, col, data.head.asInstanceOf[O])
+          }
+        case None =>
+      }
+    }
+
+    pivot
+  }
+  
+  @SuppressWarnings(Array("unchecked"))
+  private def pivotOld[I, O](
       grouped: LinkedHashMap[AnyRef, DataFrame[I]],
       values: LinkedHashMap[Int, ? <: DataFrame.Aggregate[I, O]],
       columns: Set[Int],
@@ -66,7 +144,8 @@ object Pivoting {
     val pivotCols = new mutable.LinkedHashSet[AnyRef]
     val pivotData = new mutable.LinkedHashMap[AnyRef, LinkedHashMap[AnyRef, Seq[AnyRef]]]
     val pivotFunctions = new mutable.LinkedHashMap[AnyRef, DataFrame.Aggregate[I, ?]]
-    val colNames = new ListBuffer[AnyRef]() // grouped.values.iterator.next.columns)
+    val colNames = new ListBuffer[AnyRef]() //
+     grouped.values.iterator.next.getColumns.foreach(colNames.append(_))
     // allocate row -> column -> data maps
 
     for (rowEntry <- grouped) {
@@ -88,6 +167,7 @@ object Pivoting {
           pivotColsBak.append(colName)
           pivotFunctions.put(colName, values.get(c).get)
         }
+      println(s"DataFrame Pivoting 1 ->pivot row ${rowEntry._1} rowData ${rowData.mkString(",")}")  
       pivotData.put(rowEntry._1, rowData)
     }
     // collect data for row and column groups
@@ -102,10 +182,10 @@ object Pivoting {
 
         for (c <- columns) {
           val colName = colNames(c)
-          val colData = rowData.get(colName).toBuffer
+          val colData: ArrayBuffer[I] = rowData.get(colName).toBuffer.asInstanceOf[ArrayBuffer[I]]
           // optimization, only add first value
           // since the values are all the same (due to grouping)
-          val kk = colEntry._2.getFromIndex(0, c).asInstanceOf[Seq[AnyRef]]
+          val kk = colEntry._2.getFromIndex(0, c)//.asInstanceOf[Seq[AnyRef]]
           colData.append(kk)
         }
         // add values for aggregation
@@ -118,14 +198,18 @@ object Pivoting {
       }
     }
     // iterate over row, column pairs and apply aggregate functions
-    val pivot: DataFrame[O] = new DataFrame[O](pivotData.toSeq.map(_._1), pivotColsBak.toSeq.asInstanceOf[Seq[AnyRef]])
+    val data: List[Seq[O]] = ListBuffer[Seq[O]]().toList
+    val pivotIndex = pivotData.toSeq.map(_._1)
+    val pivotNewCols = pivotCols.toSeq.asInstanceOf[Seq[AnyRef]]
+    val pivot: DataFrame[O] = new DataFrame[O](pivotIndex, pivotNewCols ,data)
 
     for (col <- pivot.getColumns)
 
       for (row <- pivot.getIndex) {
         val data = pivotData.get(row).get(col)
-        if (data != null) {
-          val func = pivotFunctions.get(col).get
+        println(s"DataFrame Pivoting ->pivot row ${row} col ${col} data ${data}")
+        if (data != null && data.size > 0) {
+          val func = pivotFunctions.getOrElse(col,null)
           if (func != null) pivot.set(
             row,
             col,
