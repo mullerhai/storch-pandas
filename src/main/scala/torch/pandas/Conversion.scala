@@ -145,7 +145,7 @@ object Conversion:
 //        conversions.put(c, new StringConversion[V]())
 //        println(s"Conversion convert 1 for  COL-> ${c}  out conv: ${conv} " ),
 //      )
-    println("Conversion convert 1 for 1 out conversions: " + conversions.toMap)
+//    println("Conversion convert 1 for 1 out conversions: " + conversions.toMap)
     // apply conversions
     convert(df, conversions.toMap, naString) // Convert mutable map to immutable for the next call
   }
@@ -207,22 +207,22 @@ object Conversion:
     for (c <- 0 until cols) {
       // Use get from Scala Map which returns Option
       val convOption = conversions.get(c)
-      println(s"Conversion convert 2 for 1 c ${c} out convOption: ${convOption} ")
+//      println(s"Conversion convert 2 for 1 c ${c} out convOption: ${convOption} ")
       for (r <- 0 until rows) {
         val originalValue = df.getFromIndex(r, c)
         val convertedValue: Any = convOption match {
           case Some(conv) =>
             // Apply the specific converter if found
             val convz = conv.apply(originalValue.asInstanceOf[V]) // Cast result to V or Null
-            println(s"Conversion convert 2 some for 1 c ${c} out convz ${convz} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
+//            println(s"Conversion convert 2 some for 1 c ${c} out convz ${convz} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
             convz
           case None =>
             // If no specific converter, apply the NA converter
             val convz = naConverter.apply(originalValue)
-            println(s"Conversion convert 2 None  for 1 c ${c} out convz ${convz} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
+//            println(s"Conversion convert 2 None  for 1 c ${c} out convz ${convz} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
             convz
         }
-        println(s"Conversion convert 2 df set  row ${r} col ${c} out convertedValue ${convertedValue.asInstanceOf[V]} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
+//        println(s"Conversion convert 2 df set  row ${r} col ${c} out convertedValue ${convertedValue.asInstanceOf[V]} convOption: ${convOption} originalValue ${originalValue.asInstanceOf[V]} ")
         df.set(r, c, convertedValue.asInstanceOf[V]) // Set the converted value (might be null)
       }
     }

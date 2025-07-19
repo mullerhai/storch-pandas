@@ -20,11 +20,14 @@ package torch.pandas
 import torch.pandas.DataFrame
 import torch.numpy.extern.NpyFile
 import torch.numpy.serve.Numpy
+import torch.pandas.component.{CSVCompat, JsonCompat, PickleCompat, PolarsCompat, XlsxCompat}
 import torch.pandas.operate.{Combining, Grouping, Pivoting, Shaping, Sorting}
 import torch.pandas.service.{Aggregation, Serialization}
+import torch.pickle.objects.MulitNumpyNdArray
 
 import java.awt.Container
 import java.io.{FileOutputStream, IOException, InputStream, OutputStream}
+import java.nio.file.Path
 import java.util
 import scala.reflect.ClassTag
 //import java.lang.reflect.Array
@@ -86,10 +89,14 @@ import scala.jdk.CollectionConverters.*
   */
 object DataFrame {
 
-  def fromSeq(data: Seq[Seq[?]],colNames:Seq[String]): DataFrame[?] = {
+  def fromSeq(data: Seq[Seq[?]],colNames:Seq[String],transpose:Boolean = true): DataFrame[?] = {
     val rows = data.size
     val cols = data.head.size
-    val df: DataFrame[Any] = new DataFrame[Any]((0 until rows).map(_.toString).toSeq,
+    val df: DataFrame[Any] = if transpose then
+      new DataFrame[Any](colNames,
+        (0 until rows).map(_.toString).toSeq,
+      data.map(_.toSeq).toList)
+    else new DataFrame[Any]((0 until rows).map(_.toString).toSeq,
       colNames,
       data.map(_.toSeq).toList)
     df
@@ -130,6 +137,10 @@ object DataFrame {
     fromNumpyNDArray(array)
   }
 
+  def readNumpyNpyFile[V](file: String): DataFrame[V] = fromNumpyNpyFile(file)
+
+  def readNumpyNpzFile[V: ClassTag](file: String): Seq[DataFrame[?]] = fromNumpyNpzFile(file)
+
   def toNumpyNpzFile[V: ClassTag](dfSeq: Seq[DataFrame[V]], file: String): Unit = {
     val array: Seq[NDArray[V]] = dfSeq.map(df =>toNumpyNDArray(df))
     //    NpyFile.write(array, file)
@@ -163,12 +174,97 @@ object DataFrame {
     val fieldNames = tag.runtimeClass.getDeclaredFields.map(_.getName).toSeq
     val rows = records.map(record => fieldNames.map(fieldName => record.getClass.getMethod(fieldName).invoke(record)))
     val rowIndex = (0 until fieldNames.size).map(_.toString).toSeq //rows.size
-    val df = new DataFrame[T](rowIndex, fieldNames.asInstanceOf[Seq[String]], rows.asInstanceOf[List[Seq[T]]])
-    if transpose then return df.transpose else return df
+    val df = if transpose then new DataFrame[T]( fieldNames.asInstanceOf[Seq[String]],rowIndex, rows.asInstanceOf[List[Seq[T]]]).transpose
+    else new DataFrame[T](rowIndex, fieldNames.asInstanceOf[Seq[String]], rows.asInstanceOf[List[Seq[T]]])
+    df
   }
+
+  def decompressorGzip(gzipFilePath: String, outputFilePath: String, readCacheFactor: Int = 100): Unit = {
+    GzipDecompressor.decompressGzip(gzipFilePath, outputFilePath, readCacheFactor)
+  }
+
+  def decompressorZip(zipFilePath: String, outputDirectory: String, readCacheFactor: Int = 100): Unit = {
+    ZipDecompressor.decompressZip(zipFilePath, outputDirectory, readCacheFactor)
+  }
+
+  def parseJsonToCaseClassSeq[T](jsonPath: String, func: ujson.Value => T)(implicit tag: ClassTag[T]): Seq[T] = JsonCompat.parseJsonFileToCaseClassSeq(jsonPath, func)
+
+  def parseJsonToColumnMap(jsonPath: String): Map[String,Array[AnyRef]] = JsonCompat.parseJsonFileToColumnar(jsonPath)
+
+  def parseJsonToCSVFile(jsonPath: String, csvPath: String, spliterator:String = ","): Unit = JsonCompat.parseJsonFileToCSVFile(jsonPath, csvPath, spliterator)
+
+
+  def readCSV(file: String, limit: Int = -1): DataFrame[AnyRef] = CSVCompat.readCSV(file, limit)
+
+  def readJson(jsonPath: String, isJsonLine: Boolean = false, recursionHeader: Boolean = false): DataFrame[AnyRef] = {
+    if !isJsonLine then JsonCompat.parseJsonFileToDataFrame(jsonPath)  else readJsonLine(jsonPath, recursionHeader)
+  }
+
+  def readJsonLine(jsonPath: String, recursionHeader: Boolean = false, limit: Int = -1): DataFrame[AnyRef] = JsonCompat.parseJsonLineToDataFrame(jsonPath, recursionHeader, limit)
+
+  def readXlsx(xlsxPath: String): DataFrame[AnyRef] = XlsxCompat.readXlsx(xlsxPath)
+
+  def readPickle[T:ClassTag](picklePath: String): DataFrame[T] = {
+    val caseSeq = PickleCompat.readPickleForCaseClassSeq[T](picklePath)
+    fromCaseClassSeq(caseSeq)
+  }
+
+  def readPickleForMap(picklePath: String): mutable.HashMap[String, AnyRef] = {
+    val map = PickleCompat.readPickleForMap(picklePath)
+    map
+  }
+
+  def readPickleForNumpy(picklePath: String): MulitNumpyNdArray = {
+    PickleCompat.readPickleForNumpy(picklePath)
+  }
+
+  /** Reads an Apache Avro file. */
+  def readIPC(file: String): DataFrame[AnyRef] = PolarsCompat.readIPC(file)
+
+  /** Reads an Apache Parquet file. */
+  def readParquet(file: String): DataFrame[AnyRef] = PolarsCompat.readParquet(file)
+
+  def readJsonLinePolars(file: String): DataFrame[AnyRef] = PolarsCompat.readJsonLine(file)
+//
+//  /** Reads an ARFF file. */
+//  def readArff(file: Path): DataFrame = Read.arff(file)
+//
+//  /** Reads a SAS7BDAT file. */
+//  def readSas(file: String): DataFrame = Read.sas(file)
+//
+//  /** Reads a SAS7BDAT file. */
+//  def readSas(file: Path): DataFrame = Read.sas(file)
+//
+//  /** Reads an Apache Arrow file. */
+//  def readArrow(file: String): DataFrame = Read.arrow(file)
+//
+//  /** Reads an Apache Arrow file. */
+//  def readArrow(file: Path): DataFrame = Read.arrow(file)
+
+  /** Reads an Apache Avro file. */
+//  def readAvro(file: String, schema: InputStream): DataFrame = Read.avro(file, schema)
+//
+//  /** Reads an Apache Avro file. */
+//  def readAvro(file: String, schema: String): DataFrame = Read.avro(file, schema)
+
+  /** Reads an Apache Avro file. */
+//  def readAvro(file: String, schema: InputStream): DataFrame[AnyRef] = PolarsCompat.readAvro(file, schema)
+
+
+  /** Reads an Apache Parquet file. */
+//  def readParquet(file: Path): DataFrame = Read.parquet(file)
+
+  /** Reads a LivSVM file. */
+//  def readLibsvm(file: String): SparseDataset[Integer] = Read.libsvm(file)
+//
+//  /** Reads a LivSVM file. */
+//  def readLibsvm(file: Path): SparseDataset[Integer] = Read.libsvm(file)
+//  
+//  
 
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] =
     Comparison.compare(df1, df2)
+
 
   /** Read the specified csv file and return the data as a data frame.
     *
@@ -544,6 +640,22 @@ class DataFrame[V](
     this.index = new Index(index, mgr.length())
   }
 
+  def writeParquet(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
+    PolarsCompat.writeParquet(dataFrame,outPath)
+  }
+  
+  def writeAvro(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
+    PolarsCompat.writeAvro(dataFrame,outPath)
+  }
+  
+  def writeJsonLine(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
+    PolarsCompat.writeJsonLine(dataFrame,outPath)
+  }
+  
+  def writeIPC(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
+    PolarsCompat.writeIPC(dataFrame,outPath)
+  }
+  
 //  def this(index: Index, columns: Index, data: BlockManager[V], groups: Grouping[V]) = this(index, columns, data, groups)
 
 //  def this(index: Seq[?], columns: Seq[?], data:  Seq[? <:  Seq[? <: V]])={
@@ -784,7 +896,7 @@ class DataFrame[V](
   def drop(cols: Seq[Int], indet:Boolean = true): DataFrame[V] = {
     val colNames = columns.names.toList
     val toDrop = cols.toSeq.map(colNames(_))
-    println("dataframe.drop cols name : " + toDrop.mkString(", "))
+//    println("dataframe.drop cols name : " + toDrop.mkString(", "))
     val newColNames = colNames.filterNot(toDrop.contains)
     val keep = newColNames.map(ele => col(ele.toString)) //.map(_.asScala.toSeq)
     new DataFrame[V](index.names, Seq(newColNames*), keep)  //mutable.Seq(newColNames*)
@@ -1056,11 +1168,10 @@ class DataFrame[V](
     index.add(name, len)
     columns.extend(row.size)
     data.reshape(columns.names.size, len + 1)
-    row.zipWithIndex.foreach { case (value, c) => data.set(value, c, len) }
-//    for (c <- 0 until data.size) {
-//      data.set(if (c < row.size) row.get(c)
-//      else null, c, len)
-//    }
+//    row.zipWithIndex.foreach { case (value, c) => data.set(value, c, len) }
+    for (c <- 0 until data.size()) {
+      data.set(if (c < row.size) then row(c) else null.asInstanceOf[V], c, len)
+    }
     this
   }
 
@@ -1486,7 +1597,7 @@ class DataFrame[V](
   def col(column: AnyRef): Seq[V] = col_with_view(columns.get(column)).toSeq
 
   def colInt(column: Int, index:Boolean = true) =
-    println("DataFrame.col: column index:  " + column)
+//    println("DataFrame.col: column index:  " + column)
     val views = new Views.SeriesListView[V](this, column, true)
     views.toSeq
 
@@ -2102,29 +2213,29 @@ class DataFrame[V](
   def kurt: DataFrame[V] = groups.apply(this, new Aggregation.Kurtosis[V])
 
   @Timed
-  def min: DataFrame[V] = groups.apply(this, new Aggregation.Min[V])
+  def min: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Aggregation.Min[V])
 
   @Timed
-  def max: DataFrame[V] = groups.apply(this, new Aggregation.Max[V])
+  def max: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Aggregation.Max[V])
 
   @Timed
   def median: DataFrame[V] = groups.apply(this, new Aggregation.Median[V])
 
   @Timed
-  def cov: DataFrame[Number] = Aggregation.cov(this)
+  def cov: DataFrame[Number] = Aggregation.cov(this.numeric.asInstanceOf[DataFrame[V]])
 
   @Timed
-  def cumsum: DataFrame[V] = groups.apply(this, new Transforms.CumulativeSum)
+  def cumsum: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeSum)
 
   @Timed
   def cumprod: DataFrame[V] = groups
-    .apply(this, new Transforms.CumulativeProduct)
+    .apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeProduct)
 
   @Timed
-  def cummin: DataFrame[V] = groups.apply(this, new Transforms.CumulativeMin)
+  def cummin: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeMin)
 
   @Timed
-  def cummax: DataFrame[V] = groups.apply(this, new Transforms.CumulativeMax)
+  def cummax: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeMax)
 
   @Timed
   def describe: DataFrame[V] = {

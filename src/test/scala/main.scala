@@ -1,3 +1,5 @@
+import org.apache.poi.hssf.usermodel.HSSFWorkbook
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import torch.pandas.DataFrame.Axis.{COLUMNS, ROWS}
 import torch.pandas.DataFrame.{JoinType, PlotType}
 import torch.pandas.DataFrame.PlotType.{AREA, BAR, GRID, GRID_WITH_TREND, LINE, LINE_AND_POINTS, SCATTER, SCATTER_WITH_TREND}
@@ -5,7 +7,9 @@ import torch.numpy.matrix.NDArray
 import torch.numpy.serve.TorchNumpy
 import torch.pandas.DataFrame
 
+import java.io.FileInputStream
 import scala.collection.immutable.Seq
+import scala.collection.mutable.ListBuffer
 import scala.collection.{mutable, Set as KeySet}
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 def testdf(): Unit = {
@@ -32,8 +36,69 @@ def readNumpy(): Unit = {
 
 }
 
-@main
+def readxls(): Unit = {
+//    val wb = new XSSFWorkbook(path)
+    val df = DataFrame.readXls("src/main/resources/sample_new.xlsx")
+    df.show()
+}
+
+def readCell(cell: org.apache.poi.ss.usermodel.Cell): Any = {
+    cell.getCellType match {
+        case org.apache.poi.ss.usermodel.CellType.STRING => cell.getStringCellValue
+        case org.apache.poi.ss.usermodel.CellType.NUMERIC =>
+            if (org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+                cell.getDateCellValue
+            } else {
+                cell.getNumericCellValue
+            }
+        case org.apache.poi.ss.usermodel.CellType.BOOLEAN => cell.getBooleanCellValue
+        case org.apache.poi.ss.usermodel.CellType.FORMULA => cell.getCellFormula
+        case _ => null
+    }
+}
+def readxlsx(): Unit = {
+    val path =new FileInputStream("src/main/resources/sample_new.xlsx")
+//    import org.apache.poi.ss.
+    val wb = new XSSFWorkbook(path)
+//    val wb = new HSSFWorkbook(path)
+    val sheet = wb.getSheetAt(0)
+    val columns = new ListBuffer[Any]
+    val data = new ListBuffer[Seq[AnyRef]]
+    val sheetIterator = sheet.iterator()
+
+    while (sheetIterator.hasNext) {
+        val row = sheetIterator.next()
+        val rowIter = row.iterator()
+
+        if (row.getRowNum == 0)
+            // read header
+            while ( rowIter.hasNext) {
+                columns.append(readCell(rowIter.next()))
+            }
+        else {
+            // read data values
+            val values = new ListBuffer[AnyRef]
+
+            while( rowIter.hasNext) {
+                val cell = rowIter.next()
+                values
+                  .append(readCell(cell).asInstanceOf[AnyRef])
+            }
+            data.append(values.toSeq)
+        }
+    }
+    // create data frame
+    val df = new DataFrame[AnyRef](columns.map(_.toString).toArray *)
+
+    for (row <- data) df.append(row)
+    df.convert.show()
+
+}
+//@main
 def main(): Unit = {
+//    readxlsx()
+//    readxls()
+
 //    val cols: Seq[String] = Seq("category", "namenick", "value", "version", "age", "score")
 //    val rows: Seq[String] = Seq("row1", "row2", "row3", "row4", "row5", "row6")
 ////    val col1Data = Seq("test", "release", "alpha", "beta", "gama", "peter")
@@ -57,8 +122,17 @@ def main(): Unit = {
     val col2Data = Seq(3, 5, Float.NaN, 0, 9, 10)
     val col3Data = Seq(10, 25, 32, 45, 53, 60)
     val data = List(col1Data, col2Data, col4Data, col5Data)
-    val df = new DataFrame(rows, cols.asInstanceOf[Seq[AnyRef]], data)
-
+    val df = new DataFrame[Any](rows, cols.asInstanceOf[Seq[AnyRef]], data)
+//    df.append("row10",Array(13,13,26,26).toSeq)
+    df.show()
+    df.plot(LINE)
+    df.plot(SCATTER)
+    df.plot(AREA)
+    df.plot(LINE_AND_POINTS)
+    df.plot(GRID)
+    df.plot(SCATTER_WITH_TREND)
+    df.plot(GRID_WITH_TREND)
+    df.plot(BAR) //have bug
     df.sortBy("category").show()
     println(s"df old columns ${df.getColumns.mkString(",")}") //dff.show()
     println(s"df old index ${df.getIndex.mkString(",")}")
@@ -79,14 +153,14 @@ def main(): Unit = {
     val pivotedDf = df.pivot("version", "category", "value")
     println("Pivoted DataFrame:")
 
-//    pivotedDf.show()
+    pivotedDf.show()
 //    du.sortBy_index(3).show()
 //    println(s"df columns ${df.getColumns.mkString(",")}")
 
 //    dff3.show()
 }
 
-//@main
+@main
 def mains(): Unit =
 //    readNumpy()
   // TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
@@ -121,6 +195,7 @@ def mains(): Unit =
     val dfss = DataFrame.readCsv("recordks.csv")
 //    dfss.set(4,"score",30000)
     dfss.show()
+    println(df.describe)
     println("dfss.index.names. "+dfss.index.names.mkString(","))
     println("dfss.index.columns  "+dfss.columns.names.mkString(","))
     println(s"dfss data ${dfss.data}")
@@ -141,6 +216,7 @@ def mains(): Unit =
     val ff3 = df.dropna(ROWS)
     //    println(ff.show())
     ff3.fillna(100)//.show()
+    df.show()
     df.kurt
     println("try to dropna....")
 //    df.unique
@@ -177,27 +253,27 @@ def mains(): Unit =
 
 //    ndf.show()
     println("try to concat....")
-//    println(df.describe)
-//    ndf.reshape(3, 2)
-//    val doss = df.merge(df)
-//    val dp =df.concat(df)
-//    doss.show()
-//    println(df.heads(2).show())
+    println(df.describe)
+    ndf.reshape(3, 2)
+    val doss = df.merge(df)
+    val dp =df.concat(df)
+    doss.show()
+    println(df.heads(2).show())
 
 
 
 
 //    println(df.describe)
 //    df.show()
-//    df.plot(LINE)
-//    df.plot(SCATTER)
-//    df.plot(AREA)
-//    df.plot(LINE_AND_POINTS)
-//    df.plot(GRID)
-//    df.plot(SCATTER_WITH_TREND)
-//    df.plot(GRID_WITH_TREND)
-//    df.plot(BAR) //have bug
-//    df.plot(PlotType.)
+    df.plot(LINE)
+    df.plot(SCATTER)
+    df.plot(AREA)
+    df.plot(LINE_AND_POINTS)
+    df.plot(GRID)
+    df.plot(SCATTER_WITH_TREND)
+    df.plot(GRID_WITH_TREND)
+    df.plot(BAR) //have bug
+    df.plot(PlotType.LINE)
 
 
 //    val df3 = df.concat(df) //merge(df2, JoinType.LEFT)

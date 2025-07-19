@@ -27,16 +27,42 @@ class BlockManager[V] private (
 
   def this(data: Iterable[Iterable[V]]) = {
     this()
-    for (col <- data) add(mutable.Buffer.from(col))
+    var maxRowCount = 0
+    // 先计算最大行数
+    for (col <- data) {
+      maxRowCount = math.max(maxRowCount, col.size)
+    }
+    // 逐列处理数据
+    for (col <- data) {
+      val newCol = mutable.Buffer.empty[V]
+      var rowIndex = 0
+      for (value <- col) {
+        newCol += value
+        rowIndex += 1
+      }
+      // 补齐列到最大行数
+      while (rowIndex < maxRowCount) {
+        newCol += null.asInstanceOf[V]
+        rowIndex += 1
+      }
+      add(newCol)
+    }
+//    for (col <- data) add(mutable.Buffer.from(col))
   }
 
   def reshape(cols: Int, rows: Int): Unit = {
-    while (blocks.size < cols)
-      add(mutable.ListBuffer.fill(rows)(null.asInstanceOf[V]))
-
-    for (block <- blocks)
-      while (block.size < rows) block.addOne(null.asInstanceOf[V])
+    // 当当前列数少于目标列数时，添加新列
+    while (blocks.size < cols) {
+      add(mutable.Buffer.fill(rows)(null.asInstanceOf[V]))
+    }
+    // 遍历每一列，将列的长度补齐到目标行数
+    blocks.foreach { block =>
+      while (block.size < rows) {
+        block.addOne(null.asInstanceOf[V])
+      }
+    }
   }
+
 
   def get(col: Int, row: Int): V = blocks(col)(row)
 
@@ -44,11 +70,31 @@ class BlockManager[V] private (
     blocks(col)(row) = value
   }
 
-  def add(col: mutable.Buffer[V]): Unit = {
+  def add(col: scala.collection.mutable.Buffer[V]): Unit = {
+    // 获取当前 blocks 中第一列的长度（即行数）
     val len = length()
-    while (col.size < len) col.addOne(null.asInstanceOf[V])
+    // 若传入列的长度小于现有行数，用 null 补齐
+    while (col.size < len) {
+      col.addOne(null.asInstanceOf[V])
+    }
+    // 将补齐后的列添加到 blocks 列表中
     blocks.addOne(col)
   }
+
+  //big bug cost most time , more data  more time !!!!
+//  def add(col: mutable.Buffer[V]): Unit = {
+//    val len = length()
+////    while (col.size < len) col.addOne(null.asInstanceOf[V])
+////    blocks.addOne(col)
+//
+//    if (col == null) return
+//    val missingCount = len - col.size
+//    if (missingCount > 0) {
+//      // 一次性添加所需的 null 值
+//      col.addAll(mutable.Buffer.fill(missingCount)(null.asInstanceOf[V]))
+//    }
+//    blocks.addOne(col)
+//  }
 
   def size(): Int = blocks.size
 

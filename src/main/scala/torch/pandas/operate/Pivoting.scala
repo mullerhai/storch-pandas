@@ -34,7 +34,7 @@ object Pivoting {
       cols: Array[Int],
       values: Array[Int],
   ): DataFrame[V] = {
-    println(s"DataFrame Pivoting ->groupBy  pivot rows ${rows.mkString(",")} cols ${cols.mkString(",")} values ${values.mkString(",")}")
+//    println(s"DataFrame Pivoting ->groupBy  pivot rows ${rows.mkString(",")} cols ${cols.mkString(",")} values ${values.mkString(",")}")
     val grouped = df.groupBy_index(rows*)
     val exploded = grouped.explode
     val aggregates = new mutable.LinkedHashMap[Int, Aggregation.Unique[V]]
@@ -167,7 +167,7 @@ object Pivoting {
           pivotColsBak.append(colName)
           pivotFunctions.put(colName, values.get(c).get)
         }
-      println(s"DataFrame Pivoting 1 ->pivot row ${rowEntry._1} rowData ${rowData.mkString(",")}")  
+//      println(s"DataFrame Pivoting 1 ->pivot row ${rowEntry._1} rowData ${rowData.mkString(",")}")  
       pivotData.put(rowEntry._1, rowData)
     }
     // collect data for row and column groups
@@ -207,7 +207,7 @@ object Pivoting {
 
       for (row <- pivot.getIndex) {
         val data = pivotData.get(row).get(col)
-        println(s"DataFrame Pivoting ->pivot row ${row} col ${col} data ${data}")
+//        println(s"DataFrame Pivoting ->pivot row ${row} col ${col} data ${data}")
         if (data != null && data.size > 0) {
           val func = pivotFunctions.getOrElse(col,null)
           if (func != null) pivot.set(

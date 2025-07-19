@@ -53,7 +53,12 @@ private class AbstractCumulativeFunction(
   reset()
 
   override def apply(value: Number): Number = {
-    stat.increment(value.asInstanceOf[Number].doubleValue)
+    val numValue = value match
+//      case ex: Boolean => if ex then 1 else 0
+      case _ => if (value.isInstanceOf[Number]) then value.asInstanceOf[Number] else 0 // throw new IllegalArgumentException("value not a number: " + value)
+    //          if (value.isInstanceOf[Boolean]) value = if (classOf[Boolean].cast(value)) 1
+    //          else 0
+    stat.increment(numValue.asInstanceOf[Number].doubleValue)
     stat.getResult
   }
 

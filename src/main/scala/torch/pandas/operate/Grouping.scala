@@ -115,7 +115,7 @@ class Grouping[V] extends Iterable[(AnyRef, SparseBitSet)] {
         try
           if (function.isInstanceOf[Aggregate[?, ?]]) {
             val colValue =  df.colInt(c).toList
-            println(s"Grouping apply here if  -> colValue ${colValue. mkString(",")}")
+//            println(s"Grouping apply here if  -> colValue ${colValue. mkString(",")}")
             val conv = function.asInstanceOf[Aggregate[V, V]].apply(colValue)
             val convv = conv.asInstanceOf[V]
             column.addOne(convv)
@@ -125,7 +125,7 @@ class Grouping[V] extends Iterable[(AnyRef, SparseBitSet)] {
 //          )
           } else for (r <- 0 until df.length)
             val rowValue = df.getFromIndex(r, c)
-            println("Group apply here else")
+//            println("Group apply here else")
             val conv =  function.asInstanceOf[Function[V, V]].apply(rowValue).asInstanceOf[V]
             column.addOne(conv)
         catch { case ex: ClassCastException =>

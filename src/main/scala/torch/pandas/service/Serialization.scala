@@ -109,7 +109,7 @@ object Serialization {
         sb.append(DELIMITER)
         val cls = types(c)
         w = width.get(columns(c)).get
-        println(s"col ${columns(c).toString} w $w")
+//        println(s"col ${columns(c).toString} w $w")
         if (classOf[Number].isAssignableFrom(cls)) sb
           .append(lpad(fmt(cls, df.getFromIndex(r, c)), w))
         else sb.append(truncate(rpad(fmt(cls, df.getFromIndex(r, c)), w), w))
@@ -275,7 +275,7 @@ object Serialization {
         // reader.getHeader(true) returns Java String[], convert to Scala List[String]
         header = reader.getHeader(true).toList
         procs = new Array[CellProcessor](header.size)
-        println(s"header ${header.mkString(",")}")
+//        println(s"header ${header.mkString(",")}")
         // Create Scala Array of CellProcessors, initialized with nulls
 //        procs = new CellProcessor(header.size) //(null)
         // Create DataFrame with Scala List header
@@ -297,7 +297,7 @@ object Serialization {
         // reader.executeProcessors returns Java List<Object>, convert to Scala List[AnyRef]
 
         val element = reader.executeProcessors(procs*).asScala.toList
-        println(s"element ${element.mkString(",")}")
+//        println(s"element ${element.mkString(",")}")
         df.append(element) // Append the first row to the DataFrame
 //        df.append(reader.executeProcessors(procs*).asScala.toList)
       }
@@ -305,7 +305,7 @@ object Serialization {
       var row: mutable.Buffer[AnyRef] = new mutable.ListBuffer[AnyRef]() // Use Java List for the row read by CsvListReader
       while ({ row = reader.read(procs*).asScala; row != null }) { // Assign and check in the while condition
         // reader.read returns Java List<Object>, convert to Scala List[AnyRef] before appending
-        println(s"row ${row.mkString(",")}")
+//        println(s"row ${row.mkString(",")}")
         df.append(row.toSeq)
       }
 
@@ -321,7 +321,78 @@ object Serialization {
             System.err.println(s"Error closing CsvListReader: ${e.getMessage}")
         }
 
-  def readCsv(input: InputStream, separator: String, numDefault: NumberDefault, naString: String, hasHeader: Boolean): DataFrame[AnyRef] =
+  def readCsv(input: InputStream, separator: String, numDefault: NumberDefault, naString: String, hasHeader: Boolean): DataFrame[AnyRef] = {
+    val csvPreference = separator match {
+      case "\\t" => CsvPreference.TAB_PREFERENCE
+      case "," => CsvPreference.STANDARD_PREFERENCE
+      case ";" => CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE
+      case "|" => new CsvPreference.Builder('"', '|', "\n").build()
+//      case "::" => new CsvPreference.Builder('"', "::", "\r\n").build()
+      case _ => throw new IllegalArgumentException(s"Separator: $separator is not currently supported")
+    }
+    var index = 0
+    val mainStartTime = System.nanoTime()
+    var preTmpEndTime = System.nanoTime()
+    val reader = new CsvListReader(new InputStreamReader(input), csvPreference)
+    var endTime = System.nanoTime()
+    var duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+    var zduration = (endTime - preTmpEndTime) / 1e9
+    println(s"Serialization csv CsvListReader time cost all： ${duration} s ,this duration time cost ${zduration} s")
+    preTmpEndTime = endTime
+    try {
+      var header: List[String] = null
+      var df: DataFrame[AnyRef] = null
+      var procs: Array[CellProcessor] = null
+      if (hasHeader) {
+        header = reader.getHeader(true).toList
+//        header = util.Arrays.asList(reader.getHeader(true): _*)
+        procs = new Array[CellProcessor](header.size)
+        df = new DataFrame[AnyRef](header*)
+      } else {
+        reader.read()
+        header = (0 until reader.length()).map(i => s"V$i").toList
+//        header = new util.ArrayList[String]()
+//        for (i <- 0 until reader.length()) {
+//          header.add(s"V$i")
+//        }
+        procs = new Array[CellProcessor](header.size)
+        df = new DataFrame[AnyRef](header*)
+        df.append(reader.executeProcessors(procs*).asScala.toList)
+        endTime = System.nanoTime()
+        duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+        zduration = (endTime - preTmpEndTime) / 1e9
+        println(s"Serialization csv CsvListReader time cost all： ${duration} s ,this duration time cost ${zduration} s")
+        preTmpEndTime = endTime
+      }
+
+      println(s"Serialization row begin read")
+      var row = reader.read(procs*)
+      while (row != null) {
+        df.append(row.asScala.toList)
+        row = reader.read(procs*)
+        index += 1
+        if (index % 10000 == 0) {
+          endTime = System.nanoTime() // 记录结束时间
+          duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+          zduration = (endTime - preTmpEndTime) / 1e9
+          println(s"Serialization csv read progress $index time cost all： ${duration} s ,this duration time cost ${zduration} s")
+          preTmpEndTime = endTime
+        }
+      }
+      println(s"Serialization csv read finish generate df finish, begin df convert")
+      val cdf = df.convert(numDefault, naString)
+      endTime = System.nanoTime() // 记录结束时间
+      duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+      zduration = (endTime - preTmpEndTime) / 1e9
+      println(s"Serialization csv read progress $index time cost all： ${duration} s ,this duration time cost ${zduration} s")
+//      preTmpEndTime = endTime
+      cdf
+
+    } finally {
+      reader.close()
+    }
+  }
+  def readCsvLittle(input: InputStream, separator: String, numDefault: NumberDefault, naString: String, hasHeader: Boolean): DataFrame[AnyRef] =
     val csvPreference = separator match
       case "\\t" => CsvPreference.TAB_PREFERENCE
       case "," => CsvPreference.STANDARD_PREFERENCE
@@ -352,10 +423,9 @@ object Serialization {
       while row != null do
 //        df.append(row.asScala.toList)
         rowBuffer.append(row.asScala.toList)
-        println(s"row ${row.asScala.mkString(",")}")
+//        println(s"row ${row.asScala.mkString(",")}")
         row = reader.read(procs*)
       rowBuffer.toSeq.map(slice => df.append(slice))
-      df
       df.convert(numDefault, naString)
     finally
       reader.close()

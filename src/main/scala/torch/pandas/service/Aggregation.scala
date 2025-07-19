@@ -72,10 +72,10 @@ object Aggregation {
       for (value <- values) if (value != null) {
         val numValue = value match
           case b: Boolean => if b then 1 else 0
-          case _ => value.asInstanceOf[Number]
+          case _ => if (value.isInstanceOf[Number]) then value.asInstanceOf[Number] else 0 // throw new IllegalArgumentException("value not a number: " + value)
 //          if (value.isInstanceOf[Boolean]) value = if (classOf[Boolean].cast(value)) 1
 //          else 0
-        stat.increment(classOf[Number].cast(value).doubleValue)
+        stat.increment(classOf[Number].cast(numValue).doubleValue)
       }
       stat.getResult
     }
@@ -166,11 +166,11 @@ object Aggregation {
   def describe[V](df: DataFrame[V]): DataFrame[V] = {
     val desc = new DataFrame[V]
 
-    println(s"describe df->>>>>>>>>>>>>>>>> ${df.getColumns.mkString(", ")}")
+//    println(s"describe df->>>>>>>>>>>>>>>>> ${df.getColumns.mkString(", ")}")
     for (col <- df.getColumns)
 
       for (row <- df.getIndex) {
-        println(s"describe row->>>>>>>>>>>>>>>>> ${row} col->>>>>>>>>>>>>>>>> ${col}")
+//        println(s"describe row->>>>>>>>>>>>>>>>> ${row} col->>>>>>>>>>>>>>>>> ${col}")
         val value = df.get(row.asInstanceOf[AnyRef], col)
         if (value.isInstanceOf[StatisticalSummary]) {
           if (!desc.getColumns.contains(col)) {

@@ -160,13 +160,13 @@ object Combining:
           List.fill[V](secondaryColsSize)(null.asInstanceOf[V]) // Create a Scala List of nulls
         }
         tmp.addAll(secondaryRow) // Add the secondary row (or list of nulls)
-        println(s"INNER key ${key} value-> ${tmp.mkString(",")} df index -> ${df.getIndex.mkString(",")}")
+//        println(s"INNER key ${key} value-> ${tmp.mkString(",")} df index -> ${df.getIndex.mkString(",")}")
         // Append the combined row to the result DataFrame
         df.append(key, tmp.toList) // Convert Scala ListBuffer to Scala List, then to Java List
-        println(s"INNER append after key ${key} value-> ${tmp.mkString(",")} df index -> ${df.getIndex.mkString(",")}")
+//        println(s"INNER append after key ${key} value-> ${tmp.mkString(",")} df index -> ${df.getIndex.mkString(",")}")
       }
     }
-    println(s"Inner finish df index -> ${df.getIndex.mkString(",")} ")
+//    println(s"Inner finish df index -> ${df.getIndex.mkString(",")} ")
     // Handle OUTER join: add rows from the secondary map that were not in the primary map
     if (how == JoinType.OUTER) {
       val (outerSecondaryMap, outerPrimaryMap) = how match {
@@ -193,7 +193,7 @@ object Combining:
           df.append(key, tmp.toList) // Convert Scala ListBuffer to Scala List, then to Java List
         }
     }
-    println(s"merge result df index -> ${df.getIndex.mkString(",")} ")
+//    println(s"merge result df index -> ${df.getIndex.mkString(",")} ")
     df // Return the resulting DataFrame
   }
 
@@ -258,7 +258,7 @@ object Combining:
     val intersection = leftNonNumericCols.intersect(rightNonNumericCols)
     // Convert the Scala Set to an Array[Any] (corresponds to Object[] in Java)
     val columnsArray: Array[AnyRef] = intersection.toArray
-    println(s"try to merge ...... join the all column -> ${columnsArray.mkString(",")} ")
+//    println(s"try to merge ...... join the all column -> ${columnsArray.mkString(",")} ")
     // Reindex both DataFrames to keep only the intersection columns and perform the join
     join(
       left.reindex(columnsArray),
@@ -349,10 +349,10 @@ object Combining:
     // Use mutable.LinkedHashSet to preserve column order from the first DataFrame encountered
     val columns = mutable.LinkedHashSet[AnyRef]()
     for (df <- dfs) {
-      println("for 1 out df.getIndex.size: " + df.getIndex.size)
+//      println("for 1 out df.getIndex.size: " + df.getIndex.size)
       totalRows += df.length // Assuming length() is row count
       for (c <- df.getColumns) { // Iterate through Java List of columns
-        println("for 1 inner c: " + c)
+//        println("for 1 inner c: " + c)
         columns.add(c)
       }
     }
@@ -370,21 +370,21 @@ object Combining:
     for (df <- dfs) {
       // Convert the current DataFrame's columns (Java List) to a Scala List
       val dfCols: List[AnyRef] = df.getColumns.toList
-      println("for 2 out dfCols: " + dfCols.mkString(","))
+//      println("for 2 out dfCols: " + dfCols.mkString(","))
       // Iterate through the columns of the current DataFrame
       for (cIndex <- 0 until dfCols.size) {
         val colName = dfCols(cIndex)
         // Find the index of this column name in the new combined columns list
         val newcIndex = newcols.indexOf(colName)
-        println("for 2 inner newcIndex: " + newcIndex)
+//        println("for 2 inner newcIndex: " + newcIndex)
         // If the column exists in the combined DataFrame (it should if collected correctly)
         if (newcIndex >= 0)
           // Copy data from the current DataFrame to the combined DataFrame
           for (r <- 0 until df.length) { // Iterate through rows of the current DataFrame
             val value = df.getFromIndex(r, cIndex) // Get value from current DataFrame
-            println("for 2 inner inner value: " + value)
+//            println("for 2 inner inner value: " + value)
             combined.set(offset + r, newcIndex, value) // Set value in combined DataFrame at the correct offset and column
-            println(s"for 2 inner inner set out combined: row ${ offset + r} col ${newcIndex } value ${value} " + combined)
+//            println(s"for 2 inner inner set out combined: row ${ offset + r} col ${newcIndex } value ${value} " + combined)
           }
       }
       // Update the row offset for the next DataFrame

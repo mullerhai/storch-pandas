@@ -143,12 +143,12 @@ class Index(
   def set(name: AnyRef, value: Int): Unit = indexMap.put(name, value)
 
   def get(name: AnyRef): Int = {
-    println(s"Class Index get func  name ${name}")
+//    println(s"Class Index get func  name ${name}")
     val i = indexMap.get(name) //.get.asInstanceOf[Int]
     if (i == null || !i.isDefined)
       throw new IllegalArgumentException("name '" + name + "' not in index indexMap: " + indexMap.toSeq.mkString(",") + "")
     val index = i.get
-    println(s"Class Index col or row name ${name}, index ${index}")
+//    println(s"Class Index col or row name ${name}, index ${index}")
     index
   }
 
@@ -171,8 +171,8 @@ class Index(
     val size = names.size
     val indices = new Array[Int](size)
     for (i <- 0 until size) {
-      println(s"Class Index indices name ${names(i)},")
-      println(s"Class Index indices name ${names(i)}, index ${get(names(i))}")
+//      println(s"Class Index indices name ${names(i)},")
+//      println(s"Class Index indices name ${names(i)}, index ${get(names(i))}")
       indices(i) = get(names(i))
     }
     indices
