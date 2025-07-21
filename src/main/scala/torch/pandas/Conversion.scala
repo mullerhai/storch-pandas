@@ -18,24 +18,42 @@ package torch.pandas
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import java.lang.{IllegalArgumentException, Boolean as JBoolean, Double as JDouble, Long as JLong, Number as JNumber, String as JString}
-import scala.reflect.ClassTag
-import scala.util.control.Breaks.{break, breakable} // Import specific Java types
+import java.lang.Boolean as JBoolean
+import java.lang.Double as JDouble
+import java.lang.IllegalArgumentException
+import java.lang.Long as JLong
+import java.lang.Number as JNumber
+import java.lang.String as JString
 // Import necessary Java classes that are still used (e.g., Date, Class, SimpleDateFormat, DateFormat)
-import java.text.{DateFormat, ParsePosition, SimpleDateFormat}
-import java.util.{Date, Arrays as JArrays, List as JList, Map as JMap, Set as JSet}
-import scala.collection.immutable.TreeSet
-// Import necessary Scala collections
-import torch.pandas.DataFrame
-import torch.pandas.DataFrame.{Function, NumberDefault}
-import torch.pandas.DataFrame.NumberDefault.{DOUBLE_DEFAULT, LONG_DEFAULT}
+import java.text.DateFormat
+import java.text.ParsePosition
+import java.text.SimpleDateFormat
+import java.util.Arrays as JArrays
+import java.util.Date
+import java.util.List as JList
+import java.util.Map as JMap
+import java.util.Set as JSet
 
+import scala.collection.immutable.TreeSet
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
+import scala.reflect.ClassTag
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable // Import specific Java types
+
+// Import necessary Scala collections
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.Function
+import torch.pandas.DataFrame.NumberDefault
+import torch.pandas.DataFrame.NumberDefault.DOUBLE_DEFAULT
+import torch.pandas.DataFrame.NumberDefault.LONG_DEFAULT
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 
 object Conversion:
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
   // Use a private var for the mutable static field
   private var dummyVariableMaxLen: Int = 8
 
@@ -110,24 +128,22 @@ object Conversion:
     val naConverter = new NAConversion[V](naString)
     val rows = df.length // Assuming length() is row count
     val cols = df.size // Assuming size() is column count
-    for (c <- 0 until cols) {
-      breakable {
-        for conv <- converters do {
-          var all = true
-          for (r <- 0 until rows) {
-            if (conv.apply(df.getFromIndex(r, c)) == null && naConverter.apply(df.getFromIndex(r, c)) != null) {
-              all = false
-              break
-            }
-          }
-          if (all) {
-            conversions.put(c, conv)
-            println(s"Conversion convert 1 for  COL-> ${c}  out conv: ${conv} ")
-            break
-          }
+    for (c <- 0 until cols) breakable(for conv <- converters do {
+      var all = true
+      for (r <- 0 until rows)
+        if (
+          conv.apply(df.getFromIndex(r, c)) == null &&
+          naConverter.apply(df.getFromIndex(r, c)) != null
+        ) {
+          all = false
+          break
         }
+      if (all) {
+        conversions.put(c, conv)
+        logger.info(s"Conversion convert 1 for  COL-> $c  out conv: $conv ")
+        break
       }
-    }
+    })
     // find conversions
 //    for (c <- 0 until cols)
 //      // Use Scala's exists or find for cleaner check
@@ -233,19 +249,20 @@ object Conversion:
     *
     * @param df
     *   The DataFrame to convert.
-    * @param fillValue    fillValue: Double,
-    *   The value to fill NA/null values with.
+    * @param fillValue
+    *   fillValue: Double, The value to fill NA/null values with.
     * @tparam V
     *   The type of the values in the DataFrame.
     * @return
     *   A 2D double array.
     */
-  def toModelMatrix[V1:ClassTag](
+  def toModelMatrix[V1: ClassTag](
       df: DataFrame[V1],
       fillValue: Any,
   ): Array[Array[V1]] = {
     val matrix = toModelMatrixDataFrame(df).fillna(fillValue.asInstanceOf[V1])
-    println(s"Conversion toModel Matrix ->matrix df columns name ${matrix.columns.names.mkString(",")} shape ->:  ${matrix.getShape}")
+    logger.info(s"Conversion toModel Matrix ->matrix df columns name ${matrix
+        .columns.names.mkString(",")} shape ->:  ${matrix.getShape}")
 //    matrix.iterrows.map(_.toArray).toArray
     matrix.toArray(classOf[Array[Array[V1]]])
   } // Use classOf for Scala
@@ -262,8 +279,8 @@ object Conversion:
     *
     * @param df
     *   The DataFrame to convert.
-    * @param fillValue  fillValue: Double,
-    *   The value to fill NA/null values with.
+    * @param fillValue
+    *   fillValue: Double, The value to fill NA/null values with.
     * @param addIntercept
     *   Whether to add an intercept column.
     * @tparam V
@@ -275,16 +292,15 @@ object Conversion:
       df: DataFrame[V],
       fillValue: Any,
       addIntercept: Boolean,
-  ): Array[Array[V]] =
-    toModelMatrixDataFrame(df, null, addIntercept, null, null).fillna(fillValue.asInstanceOf[V])
-      .toArray(classOf[Array[Array[V]]]) // Use classOf
+  ): Array[Array[V]] = toModelMatrixDataFrame(df, null, addIntercept, null, null)
+    .fillna(fillValue.asInstanceOf[V]).toArray(classOf[Array[Array[V]]]) // Use classOf
 
   /** Converts the DataFrame to a 2D double array model matrix using a template.
     *
     * @param df
     *   The DataFrame to convert.
-    * @param fillValue fillValue: Double,
-    *   The value to fill NA/null values with.
+    * @param fillValue
+    *   fillValue: Double, The value to fill NA/null values with.
     * @param template
     *   A template DataFrame.
     * @tparam V
@@ -293,12 +309,11 @@ object Conversion:
     *   A 2D double array.
     */
   def toModelMatrix[V](
-                        df: DataFrame[V],
-                        fillValue: Any,
-                        template: DataFrame[Object],
-                      ): Array[Array[V]] =
-    toModelMatrixDataFrame(df, template, false, null, null).fillna(fillValue.asInstanceOf[V])
-      .toArray(classOf[Array[Array[V]]]) // Use classOf
+      df: DataFrame[V],
+      fillValue: Any,
+      template: DataFrame[Object],
+  ): Array[Array[V]] = toModelMatrixDataFrame(df, template, false, null, null)
+    .fillna(fillValue.asInstanceOf[V]).toArray(classOf[Array[Array[V]]]) // Use classOf
 //  def toModelMatrix[V](
 //      df: DataFrame[V],
 //      fillValue: Any,
@@ -312,8 +327,8 @@ object Conversion:
     *
     * @param df
     *   The DataFrame to convert.
-    * @param fillValue  fillValue: Double,
-    *   The value to fill NA/null values with.
+    * @param fillValue
+    *   fillValue: Double, The value to fill NA/null values with.
     * @param template
     *   A template DataFrame.
     * @param addIntercept
@@ -337,8 +352,8 @@ object Conversion:
     *
     * @param df
     *   The DataFrame to convert.
-    * @param fillValue fillValue: Double,
-    *   The value to fill NA/null values with.
+    * @param fillValue
+    *   fillValue: Double, The value to fill NA/null values with.
     * @param template
     *   A template DataFrame.
     * @param addIntercept
@@ -367,8 +382,8 @@ object Conversion:
     *   Dataframe to be converted.
     * @tparam V
     *   The type of the values in the DataFrame.
-    * @return DataFrame[JNumber
-    *   A new DataFrame encoded as a model matrix.
+    * @return
+    *   DataFrame[JNumber A new DataFrame encoded as a model matrix.
     */
   def toModelMatrixDataFrame[V](df: DataFrame[V]): DataFrame[V] = { // Return DataFrame[Number]
     val matrixDataFrame = toModelMatrixDataFrame(df, null, false, null, null)
@@ -386,8 +401,8 @@ object Conversion:
     *   Whether to add an intercept column.
     * @tparam V
     *   The type of the values in the DataFrame.
-    * @return DataFrame[JNumber]
-    *   A new DataFrame encoded as a model matrix.
+    * @return
+    *   DataFrame[JNumber] A new DataFrame encoded as a model matrix.
     */
   def toModelMatrixDataFrame[V](
       df: DataFrame[V],
@@ -423,7 +438,7 @@ object Conversion:
       addIntercept: Boolean,
       factorReferences: JMap[String, String] | Null,
       naString: String | Null,
-      isDummy: Boolean = false
+      isDummy: Boolean = false,
   ): DataFrame[V] = { // Return DataFrame[Number]
     val newDf = new DataFrame[V]() // Create a new DataFrame with Number type
 
@@ -448,25 +463,33 @@ object Conversion:
       val columnName: String = columns(columnIdx).toString
 //      println(s"columnName: $columnName colTypes ${colTypes} ")
       // Use pattern matching on the column type
-      if !colTypes.isEmpty then colTypes(columnIdx) match {
-        case cls if classOf[JNumber].isAssignableFrom(cls) => // If it's a Number type
-          println(s"Conversion toModelMatrixDataFrame  Number cls: ${cls.toString}  value-> ${col.mkString(",")}")
-          val nums: ListBuffer[V] = new ListBuffer[V]() // Use Java List
-          for (num <- col) // Iterate through Java List using asScala
-            nums.append(num) // Cast to Java Number
-          newDf.addColumn(columnName, nums.toSeq) // Add the column to the new DataFrame
-          println(s"Conversion Number columnName ${columnName} newDf shape ${newDf.getShape}")
+      if !colTypes.isEmpty then
+        colTypes(columnIdx) match {
+          case cls if classOf[JNumber].isAssignableFrom(cls) => // If it's a Number type
+            logger.info(s"Conversion toModelMatrixDataFrame  Number cls: ${cls
+                .toString}  value-> ${col.mkString(",")}")
+            val nums: ListBuffer[V] = new ListBuffer[V]() // Use Java List
+            for (num <- col) // Iterate through Java List using asScala
+              nums.append(num) // Cast to Java Number
+            newDf.addColumn(columnName, nums.toSeq) // Add the column to the new DataFrame
+            logger.info(
+              s"Conversion Number columnName $columnName newDf shape ${newDf
+                  .getShape}",
+            )
 
-        case cls if classOf[Date].isAssignableFrom(cls) => // If it's a Date type
-          val dates: ListBuffer[JNumber] = new ListBuffer[JNumber]() // Use Java List
-          println(s"Conversion toModelMatrixDataFrame  Date cls: ${cls.toString}  value-> ${col.mkString(",")}")
-          for (date <- col) // Iterate through Java List using asScala
-            // Convert Date to Double (milliseconds since epoch)
-            dates
-              .append(JDouble.valueOf(date.asInstanceOf[Date].getTime.toDouble)) // Cast to Date, get time, convert to Double
-          newDf.addColumn(columnName, dates.map(_.asInstanceOf[V]).toSeq) // Add the column
+          case cls if classOf[Date].isAssignableFrom(cls) => // If it's a Date type
+            val dates: ListBuffer[JNumber] = new ListBuffer[JNumber]() // Use Java List
+            logger.info(s"Conversion toModelMatrixDataFrame  Date cls: ${cls
+                .toString}  value-> ${col.mkString(",")}")
+            for (date <- col) // Iterate through Java List using asScala
+              // Convert Date to Double (milliseconds since epoch)
+              dates
+                .append(JDouble.valueOf(date.asInstanceOf[Date].getTime.toDouble)) // Cast to Date, get time, convert to Double
+            newDf.addColumn(columnName, dates.map(_.asInstanceOf[V]).toSeq) // Add the column
 
-        case cls if classOf[Boolean].isAssignableFrom(cls) || classOf[JBoolean].isAssignableFrom(cls) => // If it's a Boolean type
+          case cls
+              if classOf[Boolean].isAssignableFrom(cls) ||
+                classOf[JBoolean].isAssignableFrom(cls) => // If it's a Boolean type
 //          val bools: ListBuffer[JNumber] = new ListBuffer[JNumber]() // Use Java List
 //          println(s"Conversion toModelMatrixDataFrame  Boolean cls: ${cls.toString}  value-> ${col.mkString(",")}")
 //          for (tVal <- col) // Iterate through Java List using asScala
@@ -474,76 +497,83 @@ object Conversion:
 //            bools.append(
 //              JDouble.valueOf(if (tVal.asInstanceOf[Boolean]) 1.0 else 0.0),
 //            ) // Cast to Boolean
-          val bools: ListBuffer[Boolean] = new ListBuffer[Boolean]() // Use Java List
-          println(s"Conversion toModelMatrixDataFrame  Boolean cls: ${cls.toString}  value-> ${col.mkString(",")}")
-          for (tVal <- col) // Iterate through Java List using asScala
-          // Convert Boolean to 1.0 or 0.0
-            bools.append(
-              tVal.asInstanceOf[Boolean]
-            ) // Cast to Boolean
-          newDf.addColumn(columnName, bools.map(_.asInstanceOf[V]).toSeq) // Add the column
+            val bools: ListBuffer[Boolean] = new ListBuffer[Boolean]() // Use Java List
+            logger.info(s"Conversion toModelMatrixDataFrame  Boolean cls: ${cls
+                .toString}  value-> ${col.mkString(",")}")
+            for (tVal <- col) // Iterate through Java List using asScala
+              // Convert Boolean to 1.0 or 0.0
+              bools.append(tVal.asInstanceOf[Boolean]) // Cast to Boolean
+            newDf.addColumn(columnName, bools.map(_.asInstanceOf[V]).toSeq) // Add the column
 
-        case cls if classOf[JString].isAssignableFrom(cls) || classOf[String].isAssignableFrom(cls) => // If it's a String type (Nominal)
-          // Use mutable.HashSet for namesUsed
-          val namesUsed = mutable.HashSet[String]()
-          println(s"Conversion toModelMatrixDataFrame  String cls: ${cls.toString}  value-> ${col.mkString(",")}")
-          // Get extra column data if template is provided
-          if !isDummy then
-            newDf.addColumn(columnName, col.map(_.asInstanceOf[V]).toSeq)
+          case cls
+              if classOf[JString].isAssignableFrom(cls) ||
+                classOf[String].isAssignableFrom(cls) => // If it's a String type (Nominal)
+            // Use mutable.HashSet for namesUsed
+            val namesUsed = mutable.HashSet[String]()
+            logger.info(s"Conversion toModelMatrixDataFrame  String cls: ${cls
+                .toString}  value-> ${col.mkString(",")}")
+            // Get extra column data if template is provided
+            if !isDummy then
+              newDf.addColumn(columnName, col.map(_.asInstanceOf[V]).toSeq)
+            else
+              val extra: Seq[AnyRef] =
+                if (template != null) template.colInt(columnIdx) else Seq.empty
+              // Assuming template.col returns Java List<Object>
 
-          else
+              // Call the helper function to convert variable to dummy variables
+              val vr = variableToDummy(
+                col.toList,
+                Option(extra).map(_.toList).orNull,
+                columnName,
+                Option(factorReferences).map(_.asScala.toMap).orNull,
+                naString,
+              ) // Convert Java List/Map to Scala List/Map for the call
+
+              val variable: List[List[JNumber]] = vr.col // vr.col is List[List[Number]]
+              val names: Array[String] = vr.names // vr.names is String[]
+
+              var cnt = 0
+              for (dummyColData <- variable) {
+                // Generate dummy variable column name
+                val name = columnName + "$" +
+                  nameToValidName(names(cnt), namesUsed)
+                cnt += 1
+                // Add the dummy variable column to the new DataFrame
+                newDf.addColumn(name, dummyColData.map(_.asInstanceOf[V]).toSeq) // Convert Scala List[Number] to Java List<Number>
+              }
+
+          case _ => // For any other type, assume it should be treated as nominal (String)
+            // This case handles types not explicitly listed above, treating them like String for dummy variable creation
+            logger.info(
+              s"Conversion toModelMatrixDataFrame not match all value-> ${col
+                  .mkString(",")}",
+            )
+            val namesUsed = mutable.HashSet[String]()
             val extra: Seq[AnyRef] =
               if (template != null) template.colInt(columnIdx) else Seq.empty
-            // Assuming template.col returns Java List<Object>
 
-            // Call the helper function to convert variable to dummy variables
             val vr = variableToDummy(
               col.toList,
               Option(extra).map(_.toList).orNull,
               columnName,
               Option(factorReferences).map(_.asScala.toMap).orNull,
               naString,
-            ) // Convert Java List/Map to Scala List/Map for the call
+            )
 
-            val variable: List[List[JNumber]] = vr.col // vr.col is List[List[Number]]
-            val names: Array[String] = vr.names // vr.names is String[]
+            val variable: List[List[JNumber]] = vr.col
+            val names: Array[String] = vr.names
 
             var cnt = 0
             for (dummyColData <- variable) {
-              // Generate dummy variable column name
-              val name = columnName + "$" + nameToValidName(names(cnt), namesUsed)
+              val name = columnName + "$" +
+                nameToValidName(names(cnt), namesUsed)
               cnt += 1
-              // Add the dummy variable column to the new DataFrame
-              newDf.addColumn(name, dummyColData.map(_.asInstanceOf[V]).toSeq) // Convert Scala List[Number] to Java List<Number>
+              newDf.addColumn(name, dummyColData.map(_.asInstanceOf[V]).toSeq)
             }
-
-        case _ => // For any other type, assume it should be treated as nominal (String)
-          // This case handles types not explicitly listed above, treating them like String for dummy variable creation
-          println(s"Conversion toModelMatrixDataFrame not match all value-> ${col.mkString(",")}")
-          val namesUsed = mutable.HashSet[String]()
-          val extra: Seq[AnyRef] =
-            if (template != null) template.colInt(columnIdx) else Seq.empty
-
-          val vr = variableToDummy(
-            col.toList,
-            Option(extra).map(_.toList).orNull,
-            columnName,
-            Option(factorReferences).map(_.asScala.toMap).orNull,
-            naString,
-          )
-
-          val variable: List[List[JNumber]] = vr.col
-          val names: Array[String] = vr.names
-
-          var cnt = 0
-          for (dummyColData <- variable) {
-            val name = columnName + "$" + nameToValidName(names(cnt), namesUsed)
-            cnt += 1
-            newDf.addColumn(name, dummyColData.map(_.asInstanceOf[V]).toSeq)
-          }
-      }
+        }
     }
-    println(s"Conversion toModelMatrixDataFrame new dataframe shape ${newDf.getShape} ")
+    logger.info(s"Conversion toModelMatrixDataFrame new dataframe shape ${newDf
+        .getShape} ")
     newDf // Return the new DataFrame
   }
 

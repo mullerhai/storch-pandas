@@ -17,13 +17,19 @@
  */
 package torch.pandas.operate
 
+import java.util.Comparator
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable
+
 import torch.pandas.DataFrame
 import torch.pandas.DataFrame.SortDirection
-
-import java.util.Comparator
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
-import scala.util.control.Breaks.{break, breakable}
 object Sorting {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  
   def sort[V](
       df: DataFrame[V],
       cols: LinkedHashMap[Int, DataFrame.SortDirection],
@@ -58,8 +64,7 @@ object Sorting {
       override def compare(r1: AnyRef, r2: AnyRef): Int = {
         val row1 = df.row_index(r1.asInstanceOf[Int])
         val row2 = df.row_index(r2.asInstanceOf[Int])
-        comparator
-          .compare(row1, row2)
+        comparator.compare(row1, row2)
       }
     }
     val rows = new Array[AnyRef](df.length)

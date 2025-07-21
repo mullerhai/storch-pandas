@@ -17,12 +17,17 @@
  */
 package torch.pandas
 
-import torch.pandas.DataFrame
-
 import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, LinkedHashSet, ListBuffer}
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.LinkedHashSet
+import scala.collection.mutable.ListBuffer
+
+import torch.pandas.DataFrame
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 
 object Comparison {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] = {
     // algorithm
     // 1. determine union of rows and columns

@@ -17,22 +17,40 @@
  */
 package torch.pandas.service
 
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import scala.collection.mutable
+import scala.collection.mutable.HashSet
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
 import org.apache.commons.math3.stat.correlation.StorelessCovariance
-import org.apache.commons.math3.stat.descriptive.moment.{StandardDeviation as KStandardDeviation, Variance as KVariance}
-import org.apache.commons.math3.stat.descriptive.moment.{StandardDeviation, Kurtosis as KKurtosis, Mean as KMean, Skewness as KSkewness}
-import org.apache.commons.math3.stat.descriptive.rank.{Max as KMax, Median as KMedian, Min as KMin, Percentile as KPercentile}
-import org.apache.commons.math3.stat.descriptive.summary.{Product as KProduct, Sum as KSum}
-import org.apache.commons.math3.stat.descriptive.{StatisticalSummary, StorelessUnivariateStatistic, SummaryStatistics, UnivariateStatistic}
+import org.apache.commons.math3.stat.descriptive.StatisticalSummary
+import org.apache.commons.math3.stat.descriptive.StorelessUnivariateStatistic
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics
+import org.apache.commons.math3.stat.descriptive.UnivariateStatistic
+import org.apache.commons.math3.stat.descriptive.moment.Kurtosis as KKurtosis
+import org.apache.commons.math3.stat.descriptive.moment.Mean as KMean
+import org.apache.commons.math3.stat.descriptive.moment.Skewness as KSkewness
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation as KStandardDeviation
+import org.apache.commons.math3.stat.descriptive.moment.Variance as KVariance
+import org.apache.commons.math3.stat.descriptive.rank.Max as KMax
+import org.apache.commons.math3.stat.descriptive.rank.Median as KMedian
+import org.apache.commons.math3.stat.descriptive.rank.Min as KMin
+import org.apache.commons.math3.stat.descriptive.rank.Percentile as KPercentile
+import org.apache.commons.math3.stat.descriptive.summary.Product as KProduct
+import org.apache.commons.math3.stat.descriptive.summary.Sum as KSum
+
 import torch.pandas.DataFrame
 import torch.pandas.DataFrame.Aggregate
-
-import scala.collection.mutable
-import scala.collection.mutable.{HashSet, LinkedHashMap, ListBuffer}
 enum AggregationType:
   case Count, Unique, Collapse, Sum, Product, Mean, StdDev, Variance, Skew,
     Kurtosis, Min, Max, Median, Percentile, Describe
 
 object Aggregation {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  
   class Count[V] extends DataFrame.Aggregate[V, Number] {
     override def apply(values: Seq[V]) = values.size
   }
@@ -72,7 +90,8 @@ object Aggregation {
       for (value <- values) if (value != null) {
         val numValue = value match
           case b: Boolean => if b then 1 else 0
-          case _ => if (value.isInstanceOf[Number]) then value.asInstanceOf[Number] else 0 // throw new IllegalArgumentException("value not a number: " + value)
+          case _ =>
+            if value.isInstanceOf[Number] then value.asInstanceOf[Number] else 0 // throw new IllegalArgumentException("value not a number: " + value)
 //          if (value.isInstanceOf[Boolean]) value = if (classOf[Boolean].cast(value)) 1
 //          else 0
         stat.increment(classOf[Number].cast(numValue).doubleValue)
@@ -138,7 +157,8 @@ object Aggregation {
       for value <- values do
         if value != null then
           val numValue = value match
-            case b: Boolean => if b then 1.asInstanceOf[Number] else 0.asInstanceOf[Number]
+            case b: Boolean =>
+              if b then 1.asInstanceOf[Number] else 0.asInstanceOf[Number]
             case _ => value.asInstanceOf[Number]
           stat.addValue(numValue.doubleValue())
 //      for (i <- 0 until values.size) {

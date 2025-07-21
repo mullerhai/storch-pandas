@@ -1,5 +1,3 @@
 package torch.pandas.component
 
-object ArffSasCompat {
-
-}
+object ArffSasCompat {}

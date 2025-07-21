@@ -20,19 +20,29 @@ package torch.pandas.component
 
 import java.io.*
 import java.lang.reflect.InvocationTargetException
-import java.util.{Arrays as JArrays, List as JList} // Use alias for Java List and Arrays
-
-// Import necessary Scala collections
-import org.jline.reader.*
-import org.mozilla.javascript.{Context, Function, NativeJavaArray, NativeJavaClass, Scriptable, ScriptableObject, WrappedException}
-import torch.pandas.DataFrame
-import torch.pandas.operate.adapter.DataFrameAdapter
-
+import java.util.Arrays as JArrays
+import java.util.List as JList // Use alias for Java List and Arrays
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
 
+// Import necessary Scala collections
+import org.jline.reader.*
+import org.mozilla.javascript.Context
+import org.mozilla.javascript.Function
+import org.mozilla.javascript.NativeJavaArray
+import org.mozilla.javascript.NativeJavaClass
+import org.mozilla.javascript.Scriptable
+import org.mozilla.javascript.ScriptableObject
+import org.mozilla.javascript.WrappedException
+
+import torch.pandas.DataFrame
+import torch.pandas.operate.adapter.DataFrameAdapter
+
 object Shell:
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
   /** Starts a Read-Eval-Print Loop (REPL) using standard input.
     *
     * @param frames

@@ -1,3 +1,5 @@
+package testcase.suite.oldbadtest
+
 ///*
 // * storch -- Data frames for Java
 // * Copyright (c) 2014, 2015 IBM Corp.

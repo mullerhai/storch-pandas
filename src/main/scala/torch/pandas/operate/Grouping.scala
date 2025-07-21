@@ -17,22 +17,26 @@
  */
 package torch.pandas.operate
 
-import torch.pandas.function.CumulativeFunction
-import torch.pandas.operate.SparseBitSet
-
 import scala.collection.Set as KeySet
+import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
 import scala.language.postfixOps
+
 //import torch.pandas.operate.Transforms.CumulativeFunction
 import torch.pandas.DataFrame
-import torch.pandas.DataFrame.{Aggregate, Function, KeyFunction}
-
-import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import torch.pandas.DataFrame.Aggregate
+import torch.pandas.DataFrame.Function
+import torch.pandas.DataFrame.KeyFunction
+import torch.pandas.function.CumulativeFunction
+import torch.pandas.operate.SparseBitSet
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 
 class Grouping[V] extends Iterable[(AnyRef, SparseBitSet)] {
 
 //  def this() ={ }
-
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private var groups: mutable.LinkedHashMap[AnyRef, SparseBitSet] =
     mutable.LinkedHashMap.empty
 
@@ -89,8 +93,8 @@ class Grouping[V] extends Iterable[(AnyRef, SparseBitSet)] {
     val index = mutable.ListBuffer[AnyRef]()
 
     // construct new row index
-    if (function.isInstanceOf[Aggregate[?, ?]] && groups.nonEmpty)
-      then index.addAll(groups.keys)
+    if function.isInstanceOf[Aggregate[?, ?]] && groups.nonEmpty then
+      index.addAll(groups.keys)
 
     // add key columns
     columns.foreach(c =>
@@ -114,7 +118,7 @@ class Grouping[V] extends Iterable[(AnyRef, SparseBitSet)] {
       if (groups.isEmpty) {
         try
           if (function.isInstanceOf[Aggregate[?, ?]]) {
-            val colValue =  df.colInt(c).toList
+            val colValue = df.colInt(c).toList
 //            println(s"Grouping apply here if  -> colValue ${colValue. mkString(",")}")
             val conv = function.asInstanceOf[Aggregate[V, V]].apply(colValue)
             val convv = conv.asInstanceOf[V]
@@ -126,11 +130,14 @@ class Grouping[V] extends Iterable[(AnyRef, SparseBitSet)] {
           } else for (r <- 0 until df.length)
             val rowValue = df.getFromIndex(r, c)
 //            println("Group apply here else")
-            val conv =  function.asInstanceOf[Function[V, V]].apply(rowValue).asInstanceOf[V]
+            val conv = function.asInstanceOf[Function[V, V]].apply(rowValue)
+              .asInstanceOf[V]
             column.addOne(conv)
-        catch { case ex: ClassCastException =>
-          println(s"Grouping apply meet Exception-> ex: ${ex.getMessage}")
-          throw ex }
+        catch {
+          case ex: ClassCastException =>
+            println(s"Grouping apply meet Exception-> ex: ${ex.getMessage}")
+            throw ex
+        }
 
         if (function.isInstanceOf[CumulativeFunction[?, ?]]) function
           .asInstanceOf[CumulativeFunction[V, V]].reset()
@@ -170,12 +177,14 @@ class Grouping[V] extends Iterable[(AnyRef, SparseBitSet)] {
     }
 //    Seq( "value", "version", "age").foreach(n => newcols.addOne(n))
     if (newcols.size <= columns.size) throw new IllegalArgumentException(
-      s"no results for aggregate function ${function.getClass.getSimpleName}, newcols.size ${newcols.size} | columns.size ${columns.size}",
+      s"no results for aggregate function ${function.getClass
+          .getSimpleName}, newcols.size ${newcols.size} | columns.size ${columns
+          .size}",
     )
 
     new DataFrame[V](
-      index.toSeq,//.asInstanceOf[Seq[Any]],
-      newcols.toSeq,//.asInstanceOf[Seq[Any]],
+      index.toSeq, // .asInstanceOf[Seq[Any]],
+      newcols.toSeq, // .asInstanceOf[Seq[Any]],
       grouped.map(_.toSeq).toList,
     )
   }

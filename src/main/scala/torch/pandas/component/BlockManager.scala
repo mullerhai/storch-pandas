@@ -18,20 +18,21 @@
 package torch.pandas.component
 
 import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
-
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 class BlockManager[V] private (
     private val blocks: mutable.Buffer[mutable.Buffer[V]],
 ) {
   def this() = this(mutable.Buffer.empty[mutable.Buffer[V]])
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
   def this(data: Iterable[Iterable[V]]) = {
     this()
     var maxRowCount = 0
     // 先计算最大行数
-    for (col <- data) {
-      maxRowCount = math.max(maxRowCount, col.size)
-    }
+    for (col <- data) maxRowCount = math.max(maxRowCount, col.size)
     // 逐列处理数据
     for (col <- data) {
       val newCol = mutable.Buffer.empty[V]
@@ -52,49 +53,37 @@ class BlockManager[V] private (
 
   def reshape(cols: Int, rows: Int): Unit = {
     // 当当前列数少于目标列数时，添加新列
-    while (blocks.size < cols) {
-      add(mutable.Buffer.fill(rows)(null.asInstanceOf[V]))
-    }
+    while (blocks.size < cols) add(mutable.Buffer.fill(rows)(null.asInstanceOf[V]))
     // 遍历每一列，将列的长度补齐到目标行数
-    blocks.foreach { block =>
-      while (block.size < rows) {
-        block.addOne(null.asInstanceOf[V])
-      }
-    }
+    blocks.foreach(block =>
+      while (block.size < rows) block.addOne(null.asInstanceOf[V]),
+    )
   }
 
-  /**
-   * 获取指定行号索引对应的一行数据
-   *
-   * @param row 行号索引，从 0 开始
-   * @return 包含该行所有列数据的序列，如果行号超出范围则返回空序列
-   */
-  def getRow(row: Int): Seq[V] = {
-    if (row < 0 || row >= length()) {
-      Seq.empty[V]
-    } else {
-      blocks.map(_(row)).toSeq
-    }
-  }
+  /** 获取指定行号索引对应的一行数据
+    *
+    * @param row
+    *   行号索引，从 0 开始
+    * @return
+    *   包含该行所有列数据的序列，如果行号超出范围则返回空序列
+    */
+  def getRow(row: Int): Seq[V] =
+    if (row < 0 || row >= length()) Seq.empty[V] else blocks.map(_(row)).toSeq
 
   def get(col: Int, row: Int): V = blocks(col)(row)
 
-  def set(value: V, col: Int, row: Int): Unit = {
-    blocks(col)(row) = value
-  }
+  def set(value: V, col: Int, row: Int): Unit = blocks(col)(row) = value
 
   def add(col: scala.collection.mutable.Buffer[V]): Unit = {
     // 获取当前 blocks 中第一列的长度（即行数）
     val len = length()
     // 若传入列的长度小于现有行数，用 null 补齐
-    while (col.size < len) {
-      col.addOne(null.asInstanceOf[V])
-    }
+    while (col.size < len) col.addOne(null.asInstanceOf[V])
     // 将补齐后的列添加到 blocks 列表中
     blocks.addOne(col)
   }
 
-  //big bug cost most time , more data  more time !!!!
+  // big bug cost most time , more data  more time !!!!
 //  def add(col: mutable.Buffer[V]): Unit = {
 //    val len = length()
 ////    while (col.size < len) col.addOne(null.asInstanceOf[V])

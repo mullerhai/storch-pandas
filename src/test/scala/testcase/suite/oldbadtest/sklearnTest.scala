@@ -1,3 +1,5 @@
+package testcase.suite.oldbadtest
+
 ////object sklearnTest {
 //import torch.sklearn.feature._
 //import torch.sklearn.feature.transformers._

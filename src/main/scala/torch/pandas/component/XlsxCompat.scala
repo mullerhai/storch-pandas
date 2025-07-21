@@ -1,27 +1,29 @@
 package torch.pandas.component
 
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import torch.pandas.DataFrame
-
 import java.io.FileInputStream
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
+
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
+
+import torch.pandas.DataFrame
 
 object XlsxCompat {
 
-  def readCell(cell: org.apache.poi.ss.usermodel.Cell): AnyRef = {
+  def readCell(cell: org.apache.poi.ss.usermodel.Cell): AnyRef =
     cell.getCellType match {
-      case org.apache.poi.ss.usermodel.CellType.STRING => cell.getStringCellValue
+      case org.apache.poi.ss.usermodel.CellType.STRING =>
+        cell.getStringCellValue
       case org.apache.poi.ss.usermodel.CellType.NUMERIC =>
-        if (org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+        if (org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell))
           cell.getDateCellValue
-        } else {
-          cell.getNumericCellValue.asInstanceOf[AnyRef]
-        }
-      case org.apache.poi.ss.usermodel.CellType.BOOLEAN => cell.getBooleanCellValue.asInstanceOf[AnyRef]
+        else cell.getNumericCellValue.asInstanceOf[AnyRef]
+      case org.apache.poi.ss.usermodel.CellType.BOOLEAN => cell
+          .getBooleanCellValue.asInstanceOf[AnyRef]
       case org.apache.poi.ss.usermodel.CellType.FORMULA => cell.getCellFormula
       case _ => null
     }
-  }
 
   def readXlsx(xlsxFilePath: String): DataFrame[AnyRef] = {
     val path = new FileInputStream(xlsxFilePath)
@@ -39,23 +41,20 @@ object XlsxCompat {
 
       if (row.getRowNum == 0)
         // read header
-        while (rowIter.hasNext) {
-          columns.append(readCell(rowIter.next()))
-        }
+        while (rowIter.hasNext) columns.append(readCell(rowIter.next()))
       else {
         // read data values
         val values = new ListBuffer[AnyRef]
 
         while (rowIter.hasNext) {
           val cell = rowIter.next()
-          values
-            .append(readCell(cell).asInstanceOf[AnyRef])
+          values.append(readCell(cell).asInstanceOf[AnyRef])
         }
         data.append(values.toSeq)
       }
     }
     // create data frame
-    val df = new DataFrame[AnyRef](columns.map(_.toString).toArray *)
+    val df = new DataFrame[AnyRef](columns.map(_.toString).toArray*)
 
     for (row <- data) df.append(row)
     df.convert

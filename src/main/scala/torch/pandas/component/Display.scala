@@ -17,10 +17,29 @@
  */
 package torch.pandas.component
 
+import java.awt.Color
+import java.awt.Container
+import java.awt.GridLayout
+import java.util
+import java.util.Calendar
+import java.util.Date
+import javax.swing.JFrame
+import javax.swing.JScrollPane
+import javax.swing.JTable
+import javax.swing.SwingUtilities
+import javax.swing.table.AbstractTableModel
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
+
+import org.apache.commons.math3.stat.regression.SimpleRegression
+
+import com.xeiam.xchart.*
 //import org.knowm.xchart.style.C
 import com.xeiam.xchart.StyleManager.ChartType
-import com.xeiam.xchart.*
-import org.apache.commons.math3.stat.regression.SimpleRegression
+
 //import org.knowm.xchart.XChartPanel
 //import org.knowm.xchart.internal.ChartBuilder
 //import org.knowm.xchart.internal.chartpart.Chart
@@ -28,15 +47,8 @@ import org.apache.commons.math3.stat.regression.SimpleRegression
 import torch.pandas.DataFrame
 import torch.pandas.DataFrame.PlotType
 
-import java.awt.{Color, Container, GridLayout}
-import java.util
-import java.util.{Calendar, Date}
-import javax.swing.{JFrame, JScrollPane, JTable, SwingUtilities}
-import javax.swing.table.AbstractTableModel
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
-import scala.jdk.CollectionConverters.*
-
 object Display {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   def draw[C <: Container, V](
       df: DataFrame[V],
       container: C,
@@ -50,10 +62,12 @@ object Display {
     val it = df.getIndex.iterator
     for (i <- 0 until df.length) {
       val value = if (it.hasNext) it.next else i
-      if (value.isInstanceOf[Number] || value.isInstanceOf[Date])
-        xdata.append(value)
+      if (value.isInstanceOf[Number] || value.isInstanceOf[Date]) xdata
+        .append(value)
       else if (PlotType.BAR == plotType) {
-        println(s"xdata ${xdata.mkString(", ")} |-> value ${value} |-> value str ${String.valueOf(value)}")
+        logger.info(s"xdata ${xdata
+            .mkString(", ")} |-> value $value |-> value str ${String
+            .valueOf(value)}")
         xdata.append(String.valueOf(value))
       } else xdata.append(i)
     }
@@ -65,8 +79,8 @@ object Display {
         val numericCol = numeric.col(col.toString).map(_.doubleValue()).toArray
         val series = chart.addSeries(
           String.valueOf(col),
-          xdata.map(_.asInstanceOf[Int]*1.0d).toArray,//.asInstanceOf[Array[Double]],
-          numericCol, //numeric.col(col).map(_.asInstanceOf[Int]*1.0d).toArray.asInstanceOf[Array[Double]],
+          xdata.map(_.asInstanceOf[Int] * 1.0d).toArray, // .asInstanceOf[Array[Double]],
+          numericCol, // numeric.col(col).map(_.asInstanceOf[Int]*1.0d).toArray.asInstanceOf[Array[Double]],
         )
         if (plotType eq PlotType.GRID_WITH_TREND) {
           addTrend(chart, series, xdata.toSeq)
@@ -87,11 +101,11 @@ object Display {
       }
 
       for (col <- numeric.getColumns) {
-        println(s"xdata ${xdata.mkString(", ")}")
-        val xdata2 = Array(1,2,3,4,5,6)
+        logger.info(s"xdata ${xdata.mkString(", ")}")
+        val xdata2 = Array(1, 2, 3, 4, 5, 6)
         val series = chart.addSeries(
           String.valueOf(col),
-          xdata2.map(_.asInstanceOf[Int].toDouble).toArray, //.asInstanceOf[Array[Double]],
+          xdata2.map(_.asInstanceOf[Int].toDouble).toArray, // .asInstanceOf[Array[Double]],
           numeric.col(col.toString).map(_.doubleValue()).toArray,
         )
         if (plotType eq PlotType.SCATTER_WITH_TREND) {
@@ -130,7 +144,8 @@ object Display {
 
             override def getColumnCount: Int = df.size
 
-            override def getValueAt(row: Int, col: Int): V = df.getFromIndex(row, col)
+            override def getValueAt(row: Int, col: Int): V = df
+              .getFromIndex(row, col)
 
             override def getColumnName(col: Int): String = String
               .valueOf(columns(col))
@@ -238,8 +253,8 @@ object Display {
     val mc = series.getMarkerColor
     val c = new Color(mc.getRed, mc.getGreen, mc.getBlue, 0x60)
     val x2: Array[Double] = Array(
-      xdata(0).asInstanceOf[Int]*1.0d,
-      xdata(xdata.size - 1).asInstanceOf[Int]*1.0d,
+      xdata(0).asInstanceOf[Int] * 1.0d,
+      xdata(xdata.size - 1).asInstanceOf[Int] * 1.0d,
     )
     val x3 = Array(model.predict(0), model.predict(xdata.size - 1))
     val trend = chart.addSeries(series.getName + " (trend)", x2, x3)

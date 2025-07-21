@@ -128,6 +128,14 @@ libraryDependencies += "org.slf4j" % "slf4j-api" % "2.1.0-alpha1"
 // https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-annotation
 libraryDependencies += "io.dropwizard.metrics" % "metrics-annotation" % "4.2.30"
 libraryDependencies += "io.dropwizard.metrics" % "metrics-core" % "4.2.30"
+
+libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.4.11"
+libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
+libraryDependencies += "org.slf4j" % "slf4j-simple" % "2.1.0-alpha1" % Test
+libraryDependencies += "org.specs2" %% "specs2-core" % "5.6.4" % Test
+libraryDependencies += "org.scalameta" %% "munit" % "1.1.1" % Test
+libraryDependencies += "org.scalameta" %% "munit-scalacheck" % "1.1.0" % Test
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.17" % Test
 //// https://mvnrepository.com/artifact/com.lancedb/lance-core
 //libraryDependencies += "com.lancedb" % "lance-core" % "0.31.0"
 //// https://mvnrepository.com/artifact/com.lancedb/lancedb-core

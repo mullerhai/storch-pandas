@@ -17,14 +17,19 @@
  */
 package torch.pandas.component
 
-import torch.pandas.DataFrame.RowFunction
-import torch.pandas.DataFrame
-
-import scala.collection.{mutable, Set as KeySet}
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.collection.Set as KeySet
+import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.RowFunction
 object Index {
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  
   def reindex[V](df: DataFrame[V], cols: Int*): DataFrame[V] = {
     val transformed = df.transform {
       if (cols.length == 1) new RowFunction[V, Any] {
@@ -78,7 +83,7 @@ object Index {
 //    for (i <- 0 until df.length) {
 //      index.add(i)
 //    }
-    val viewData = new Views.ListView[V](df, false).toSeq //asScala
+    val viewData = new Views.ListView[V](df, false).toSeq // asScala
       .map(_.asInstanceOf[Seq[V]]).toList
     new DataFrame[V](
       index.asInstanceOf[Seq[AnyRef]],
@@ -94,7 +99,8 @@ class Index(
 ) {
 //  val it: Iterator[?] = names.iterator
   def this() = this(
-    new mutable.LinkedHashMap[AnyRef, Int]().addAll(List.empty[AnyRef].zipWithIndex),
+    new mutable.LinkedHashMap[AnyRef, Int]()
+      .addAll(List.empty[AnyRef].zipWithIndex),
   )
 
   def this(names: Iterable[AnyRef]) =
@@ -110,10 +116,11 @@ class Index(
   }
 
   def add(name: AnyRef, value: Int): Unit = {
-    if (indexMap.contains(name)) {
-      println((s"duplicate name '$name' in index ,value ${value} can not to be add "))
+    if (indexMap.contains(name))
+      println(
+        s"duplicate name '$name' in index ,value $value can not to be add ",
+      )
 //      throw new IllegalArgumentException(s"duplicate name '$name' in index ,value ${value} can not to be add ")
-    }
     indexMap(name) = value
   }
 
@@ -140,24 +147,29 @@ class Index(
 //      throw new IllegalArgumentException("duplicate name '" + name + "' in index")
 //  }
 
-  def extend(size: Int): Unit = for (i <- indexMap.size until size) add(i.asInstanceOf[AnyRef], i)
+  def extend(size: Int): Unit =
+    for (i <- indexMap.size until size) add(i.asInstanceOf[AnyRef], i)
 
   def set(name: AnyRef, value: Int): Unit = indexMap.put(name, value)
 
   def getInt(name: Int): Int = {
     //    println(s"Class Index get func  name ${name}")
-    val i = indexMap.get(name.toString.asInstanceOf[AnyRef]) //.get.asInstanceOf[Int]
-    if (i == null || !i.isDefined)
-      throw new IllegalArgumentException("name '" + name + "' not in index indexMap: " + indexMap.toSeq.mkString(",") + "")
+    val i = indexMap.get(name.toString.asInstanceOf[AnyRef]) // .get.asInstanceOf[Int]
+    if (i == null || !i.isDefined) throw new IllegalArgumentException(
+      "name '" + name + "' not in index indexMap: " +
+        indexMap.toSeq.mkString(",") + "",
+    )
     val index = i.get
     //    println(s"Class Index col or row name ${name}, index ${index}")
     index
   }
   def get(name: AnyRef): Int = {
 //    println(s"Class Index get func  name ${name}")
-    val i = indexMap.get(name) //.get.asInstanceOf[Int]
-    if (i == null || !i.isDefined)
-      throw new IllegalArgumentException("name '" + name + "' not in index indexMap: " + indexMap.toSeq.mkString(",") + "")
+    val i = indexMap.get(name) // .get.asInstanceOf[Int]
+    if (i == null || !i.isDefined) throw new IllegalArgumentException(
+      "name '" + name + "' not in index indexMap: " +
+        indexMap.toSeq.mkString(",") + "",
+    )
     val index = i.get
 //    println(s"Class Index col or row name ${name}, index ${index}")
     index
@@ -181,11 +193,10 @@ class Index(
   def indices(names: Seq[AnyRef]): Array[Int] = {
     val size = names.size
     val indices = new Array[Int](size)
-    for (i <- 0 until size) {
+    for (i <- 0 until size)
 //      println(s"Class Index indices name ${names(i)},")
 //      println(s"Class Index indices name ${names(i)}, index ${get(names(i))}")
       indices(i) = get(names(i))
-    }
     indices
 //    Array(3,4,5)
   }

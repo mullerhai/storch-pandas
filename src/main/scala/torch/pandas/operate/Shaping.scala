@@ -17,10 +17,14 @@
  */
 package torch.pandas.operate
 
-import torch.pandas.DataFrame
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import torch.pandas.DataFrame
 object Shaping {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   def reshape[V](df: DataFrame[V], rows: Int, cols: Int): DataFrame[V] = {
     val reshaped = new DataFrame[V]
     var colIt: Iterator[AnyRef] = df.getColumns.iterator
@@ -32,17 +36,21 @@ object Shaping {
 
     val rowIt = df.getIndex.iterator
     for (r <- 0 until rows) {
- 
-      val name = rowIt.nextOption().getOrElse(r.asInstanceOf[AnyRef]) //if (it.hasNext) it.next else r.asInstanceOf[String]
+
+      val name = rowIt.nextOption().getOrElse(r.asInstanceOf[AnyRef]) // if (it.hasNext) it.next else r.asInstanceOf[String]
       reshaped.append(name, Seq.empty)
     }
     for (c <- 0 until cols) for (r <- 0 until rows)
- 
+
       if (c < df.size && r < df.length) reshaped.set(r, c, df.getFromIndex(r, c))
     reshaped
   }
 
-  def reshape[V](df: DataFrame[V], rows: Seq[AnyRef], cols: Seq[AnyRef]): DataFrame[V] = {
+  def reshape[V](
+      df: DataFrame[V],
+      rows: Seq[AnyRef],
+      cols: Seq[AnyRef],
+  ): DataFrame[V] = {
     val reshaped = new DataFrame[V]
 
     for (name <- cols) reshaped.add(name)
@@ -52,7 +60,8 @@ object Shaping {
     for (c <- cols)
 
       for (r <- rows) if (df.getColumns.contains(c) && df.getIndex.contains(r))
-        reshaped.set(r, c, df.getFromIndex(r.asInstanceOf[Int], c.asInstanceOf[Int]))
+        reshaped
+          .set(r, c, df.getFromIndex(r.asInstanceOf[Int], c.asInstanceOf[Int]))
     reshaped
   }
 }

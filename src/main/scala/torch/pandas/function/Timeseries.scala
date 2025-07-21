@@ -17,12 +17,15 @@
  */
 package torch.pandas.function
 
+import java.util
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
 import torch.pandas.DataFrame
 import torch.pandas.DataFrame.Function
-
-import java.util
-import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 object Timeseries {
   def rollapply[V](

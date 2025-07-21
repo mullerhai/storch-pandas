@@ -17,15 +17,21 @@
  */
 package torch.pandas.service
 
-import torch.pandas.DataFrame.Predicate
-import torch.pandas.DataFrame
-import torch.pandas.component.{BlockManager, Index}
-import torch.pandas.operate.SparseBitSet
-
 import java.util
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.Predicate
+import torch.pandas.component.BlockManager
+import torch.pandas.component.Index
+import torch.pandas.operate.SparseBitSet
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 
 object Selection {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   def select[V](
       df: DataFrame[V],
       predicate: DataFrame.Predicate[V],

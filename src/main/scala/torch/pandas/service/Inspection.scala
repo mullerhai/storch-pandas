@@ -17,12 +17,16 @@
  */
 package torch.pandas.service
 
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+
 import torch.pandas.DataFrame
 import torch.pandas.operate.SparseBitSet
-
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 
 object Inspection {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   def types(df: DataFrame[?]): Seq[Class[?]] = {
     val types = new ListBuffer[Class[?]]()
     var c = 0

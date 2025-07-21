@@ -17,40 +17,66 @@
  */
 package torch.pandas
 
-import torch.numpy.enums.DType.Float32
-import torch.pandas.DataFrame
-import torch.numpy.extern.NpyFile
-import torch.numpy.serve.Numpy
-import torch.pandas.component.{CSVCompat, JsonCompat, PickleCompat, PolarsCompat, XlsxCompat}
-import torch.pandas.operate.{Combining, Grouping, Pivoting, Shaping, Sorting}
-import torch.pandas.service.{Aggregation, Serialization}
-import torch.pickle.objects.MulitNumpyNdArray
-
 import java.awt.Container
-import java.io.{FileOutputStream, IOException, InputStream, OutputStream}
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.nio.file.Path
-import java.util
-import scala.reflect.ClassTag
-//import java.lang.reflect.Array
-import com.codahale.metrics.annotation.Timed
-import torch.pandas.DataFrame.Axis
-import torch.pandas.DataFrame.Axis.ROWS
-import torch.numpy.enums.DType
-import torch.numpy.matrix.NDArray
-import torch.numpy.serve.TorchNumpy
-import torch.pandas.component.{BlockManager, Display, Index, Shell, Views}
-import torch.pandas.function.{Timeseries, Transforms}
-import torch.pandas.operate
-import torch.pandas.operate.SparseBitSet
-import torch.pandas.service.{Inspection, Selection}
-
-import java.sql.{ResultSet, SQLException, PreparedStatement, Statement, Connection}
+import java.sql.Connection
+import java.sql.PreparedStatement
+import java.sql.ResultSet
+import java.sql.SQLException
+import java.sql.Statement
 import java.util
 import java.util.Comparator
-import scala.collection.immutable.{Seq, Set}
-import scala.collection.{mutable, Set as KeySet}
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.collection.Set as KeySet
+import scala.collection.immutable.Seq
+import scala.collection.immutable.Set
+import scala.collection.mutable
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
+import scala.reflect.ClassTag
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import torch.pandas.DataFrame.logger
+//import java.lang.reflect.Array
+import com.codahale.metrics.annotation.Timed
+
+import torch.numpy.enums.DType
+import torch.numpy.enums.DType.Float32
+import torch.numpy.extern.NpyFile
+import torch.numpy.matrix.NDArray
+import torch.numpy.serve.Numpy
+import torch.numpy.serve.TorchNumpy
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.Axis
+import torch.pandas.DataFrame.Axis.ROWS
+import torch.pandas.component.BlockManager
+import torch.pandas.component.CSVCompat
+import torch.pandas.component.Display
+import torch.pandas.component.Index
+import torch.pandas.component.JsonCompat
+import torch.pandas.component.PickleCompat
+import torch.pandas.component.PolarsCompat
+import torch.pandas.component.Shell
+import torch.pandas.component.Views
+import torch.pandas.component.XlsxCompat
+import torch.pandas.function.Timeseries
+import torch.pandas.function.Transforms
+import torch.pandas.operate
+import torch.pandas.operate.Combining
+import torch.pandas.operate.Grouping
+import torch.pandas.operate.Pivoting
+import torch.pandas.operate.Shaping
+import torch.pandas.operate.Sorting
+import torch.pandas.operate.SparseBitSet
+import torch.pandas.service.Aggregation
+import torch.pandas.service.Inspection
+import torch.pandas.service.Selection
+import torch.pandas.service.Serialization
+import torch.pickle.objects.MulitNumpyNdArray
 
 /** A data frame implementation in the spirit of <a
   * href="http://pandas.pydata.org">Pandas</a> or <a
@@ -90,33 +116,52 @@ import scala.jdk.CollectionConverters.*
   */
 object DataFrame {
 
-  def fromSeq(data: Seq[Seq[?]],colNames:Seq[String],transpose:Boolean = true): DataFrame[?] = {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  def fromSeq(
+      data: Seq[Seq[?]],
+      colNames: Seq[String],
+      transpose: Boolean = true,
+  ): DataFrame[?] = {
     val rows = data.size
     val cols = data.head.size
-    val df: DataFrame[Any] = if transpose then
-      new DataFrame[Any](colNames,
-        (0 until rows).map(_.toString).toSeq,
-      data.map(_.toSeq).toList)
-    else new DataFrame[Any]((0 until rows).map(_.toString).toSeq,
-      colNames,
-      data.map(_.toSeq).toList)
+    val df: DataFrame[Any] =
+      if transpose then
+        new DataFrame[Any](
+          colNames,
+          (0 until rows).map(_.toString).toSeq,
+          data.map(_.toSeq).toList,
+        )
+      else
+        new DataFrame[Any](
+          (0 until rows).map(_.toString).toSeq,
+          colNames,
+          data.map(_.toSeq).toList,
+        )
     df
   }
 
-  def fromNumpyNDArray[V](array: NDArray[V],transpose:Boolean = true): DataFrame[V] = {
+  def fromNumpyNDArray[V](
+      array: NDArray[V],
+      transpose: Boolean = true,
+  ): DataFrame[V] = {
     require(array.getNdim == 2, "Only 2D arrays are supported")
     val data: Array[Array[V]] = array.getArray.asInstanceOf[Array[Array[V]]]
     val rows = data.length
     val shape = array.getShape
     val cols = shape(1)
-    val df = new DataFrame[V]( (0 until rows).map(_.toString).toSeq,
+    val df = new DataFrame[V](
+      (0 until rows).map(_.toString).toSeq,
       (0 until cols).map(_.toString).toSeq,
-      data.transpose.map(_.toSeq).toList)
+      data.transpose.map(_.toSeq).toList,
+    )
     if transpose then return df.transpose else return df
   }
 
-  def toNumpyNDArray[V: ClassTag](df: DataFrame[V],fillValue : Double = Double.NaN): NDArray[V] = {
-    val data = df.toModelMatrixDataFrame.toModelMatrix(fillValue) //.toModelMatrix()
+  def toNumpyNDArray[V: ClassTag](
+      df: DataFrame[V],
+      fillValue: Double = Double.NaN,
+  ): NDArray[V] = {
+    val data = df.toModelMatrixDataFrame.toModelMatrix(fillValue) // .toModelMatrix()
     //    val rows = data.size
     //    val cols = data.head.size
     //    val array = new NDArray[V](rows, cols)
@@ -127,60 +172,84 @@ object DataFrame {
     ndArray
   }
 
-  def toNumpyNpyFile[V: ClassTag](df: DataFrame[V],file: String): Unit = {
+  def toNumpyNpyFile[V: ClassTag](df: DataFrame[V], file: String): Unit = {
     val array: NDArray[V] = toNumpyNDArray(df)
 //    NpyFile.write(array, file)
-    TorchNumpy.saveNpyFile[V](file,array)
+    TorchNumpy.saveNpyFile[V](file, array)
   }
 
-  def fromNumpyNpyFile[V:ClassTag](file: String): DataFrame[V] = {
+  def fromNumpyNpyFile[V: ClassTag](file: String): DataFrame[V] = {
     val array: NDArray[V] = TorchNumpy.loadNDArray(file)
     fromNumpyNDArray(array)
   }
 
-  def readNumpyNpyFile[V: ClassTag](file: String): DataFrame[V] = fromNumpyNpyFile(file)
+  def readNumpyNpyFile[V: ClassTag](file: String): DataFrame[V] =
+    fromNumpyNpyFile(file)
 
-  def readNumpyNpzFile[V: ClassTag](file: String): Seq[DataFrame[?]] = fromNumpyNpzFile(file)
+  def readNumpyNpzFile[V: ClassTag](file: String): Seq[DataFrame[?]] =
+    fromNumpyNpzFile(file)
 
-  def toNumpyNpzFile[V: ClassTag](dfSeq: Seq[DataFrame[V]], file: String): Unit = {
-    val array: Seq[NDArray[V]] = dfSeq.map(df =>toNumpyNDArray(df))
+  def toNumpyNpzFile[V: ClassTag](
+      dfSeq: Seq[DataFrame[V]],
+      file: String,
+  ): Unit = {
+    val array: Seq[NDArray[V]] = dfSeq.map(df => toNumpyNDArray(df))
     //    NpyFile.write(array, file)
-    TorchNumpy.saveNpzFile(file,array)
+    TorchNumpy.saveNpzFile(file, array)
   }
 
   def fromNumpyNpzFile[V: ClassTag](file: String): Seq[DataFrame[?]] = {
     val ndArray: Seq[NDArray[?]] = TorchNumpy.loadNpzFile(file)
-    ndArray.map(array =>fromNumpyNDArray(array))
+    ndArray.map(array => fromNumpyNDArray(array))
   }
 
-  def fromNumpyCSVTextFile[V:ClassTag](file: String, shape: Seq[Int], header: Boolean = false, dtype: DType = DType.Float32): DataFrame[V] = {
-    val array: NDArray[V] = TorchNumpy.loadNDArrayFromCSV(file, shape, header, dtype)
+  def fromNumpyCSVTextFile[V: ClassTag](
+      file: String,
+      shape: Seq[Int],
+      header: Boolean = false,
+      dtype: DType = DType.Float32,
+  ): DataFrame[V] = {
+    val array: NDArray[V] = TorchNumpy
+      .loadNDArrayFromCSV(file, shape, header, dtype)
     fromNumpyNDArray(array)
   }
 
-  def toNumpyCSVTextFile[V:ClassTag](df: DataFrame[V], file: String, is2dim: Boolean = false, rowFirst:Boolean = true): Unit = {
+  def toNumpyCSVTextFile[V: ClassTag](
+      df: DataFrame[V],
+      file: String,
+      is2dim: Boolean = false,
+      rowFirst: Boolean = true,
+  ): Unit = {
     val array: NDArray[V] = toNumpyNDArray(df)
     TorchNumpy.saveNDArrayToCSV(array, file, is2dim, rowFirst)
   }
 
-  /**
-   * 将两个 DataFrame 分割为训练集和测试集，分别返回特征和标签的训练集、测试集。
-   *
-   * @param featureDf   包含所有特征列的 DataFrame
-   * @param labelDf     仅包含标签列的 DataFrame
-   * @param testSize    测试集所占比例，范围在 0 到 1 之间
-   * @param randomState 随机种子，用于复现分割结果
-   * @tparam V DataFrame 中值的类型
-   * @return 包含训练集特征、测试集特征、训练集标签、测试集标签的四元组
-   */
+  /** 将两个 DataFrame 分割为训练集和测试集，分别返回特征和标签的训练集、测试集。
+    *
+    * @param featureDf
+    *   包含所有特征列的 DataFrame
+    * @param labelDf
+    *   仅包含标签列的 DataFrame
+    * @param testSize
+    *   测试集所占比例，范围在 0 到 1 之间
+    * @param randomState
+    *   随机种子，用于复现分割结果
+    * @tparam V
+    *   DataFrame 中值的类型
+    * @return
+    *   包含训练集特征、测试集特征、训练集标签、测试集标签的四元组
+    */
   def train_test_split[V](
-                           featureDf: DataFrame[V],
-                           labelDf: DataFrame[V],
-                           testSize: Double = 0.2,
-                           randomState: Int = 42
-                         ): (DataFrame[V], DataFrame[V], DataFrame[V], DataFrame[V]) = {
+      featureDf: DataFrame[V],
+      labelDf: DataFrame[V],
+      testSize: Double = 0.2,
+      randomState: Int = 42,
+  ): (DataFrame[V], DataFrame[V], DataFrame[V], DataFrame[V]) = {
     require(testSize > 0 && testSize < 1, "test dataset ratio must set  0 ~ 1 ")
-    require(featureDf.length == labelDf.length, "featureDf and labelDf must have the same number of rows")
+    require(
+      featureDf.length == labelDf.length,
+      "featureDf and labelDf must have the same number of rows",
+    )
     // 设置随机种子
     scala.util.Random.setSeed(randomState)
     // 打乱索引
@@ -199,50 +268,89 @@ object DataFrame {
 
     (X_train, X_test, y_train, y_test)
   }
-  /** *
-   * 将case class转换为DataFrame
-   *
-   * @param records
-   * @param transpose
-   * @param tag
-   * @tparam T
-   * @return
-   */
-  def fromCaseClassSeq[T](records: Seq[T], transpose: Boolean = true)(implicit tag: ClassTag[T]): DataFrame[T] = {
+
+  /** * 将case class转换为DataFrame
+    *
+    * @param records
+    * @param transpose
+    * @param tag
+    * @tparam T
+    * @return
+    */
+  def fromCaseClassSeq[T](records: Seq[T], transpose: Boolean = true)(implicit
+      tag: ClassTag[T],
+  ): DataFrame[T] = {
     val fieldNames = tag.runtimeClass.getDeclaredFields.map(_.getName).toSeq
-    val rows = records.map(record => fieldNames.map(fieldName => record.getClass.getMethod(fieldName).invoke(record)))
-    val rowIndex = (0 until fieldNames.size).map(_.toString).toSeq //rows.size
-    val df = if transpose then new DataFrame[T]( fieldNames.asInstanceOf[Seq[String]],rowIndex, rows.asInstanceOf[List[Seq[T]]]).transpose
-    else new DataFrame[T](rowIndex, fieldNames.asInstanceOf[Seq[String]], rows.asInstanceOf[List[Seq[T]]])
+    val rows = records.map(record =>
+      fieldNames
+        .map(fieldName => record.getClass.getMethod(fieldName).invoke(record)),
+    )
+    val rowIndex = (0 until fieldNames.size).map(_.toString).toSeq // rows.size
+    val df =
+      if transpose then
+        new DataFrame[T](
+          fieldNames.asInstanceOf[Seq[String]],
+          rowIndex,
+          rows.asInstanceOf[List[Seq[T]]],
+        ).transpose
+      else
+        new DataFrame[T](
+          rowIndex,
+          fieldNames.asInstanceOf[Seq[String]],
+          rows.asInstanceOf[List[Seq[T]]],
+        )
     df
   }
 
-  def decompressorGzip(gzipFilePath: String, outputFilePath: String, readCacheFactor: Int = 100): Unit = {
-    GzipDecompressor.decompressGzip(gzipFilePath, outputFilePath, readCacheFactor)
-  }
+  def decompressorGzip(
+      gzipFilePath: String,
+      outputFilePath: String,
+      readCacheFactor: Int = 100,
+  ): Unit = GzipDecompressor
+    .decompressGzip(gzipFilePath, outputFilePath, readCacheFactor)
 
-  def decompressorZip(zipFilePath: String, outputDirectory: String, readCacheFactor: Int = 100): Unit = {
-    ZipDecompressor.decompressZip(zipFilePath, outputDirectory, readCacheFactor)
-  }
+  def decompressorZip(
+      zipFilePath: String,
+      outputDirectory: String,
+      readCacheFactor: Int = 100,
+  ): Unit = ZipDecompressor
+    .decompressZip(zipFilePath, outputDirectory, readCacheFactor)
 
-  def parseJsonToCaseClassSeq[T](jsonPath: String, func: ujson.Value => T)(implicit tag: ClassTag[T]): Seq[T] = JsonCompat.parseJsonFileToCaseClassSeq(jsonPath, func)
+  def parseJsonToCaseClassSeq[T](jsonPath: String, func: ujson.Value => T)(
+      implicit tag: ClassTag[T],
+  ): Seq[T] = JsonCompat.parseJsonFileToCaseClassSeq(jsonPath, func)
 
-  def parseJsonToColumnMap(jsonPath: String): Map[String,Array[AnyRef]] = JsonCompat.parseJsonFileToColumnar(jsonPath)
+  def parseJsonToColumnMap(jsonPath: String): Map[String, Array[AnyRef]] =
+    JsonCompat.parseJsonFileToColumnar(jsonPath)
 
-  def parseJsonToCSVFile(jsonPath: String, csvPath: String, spliterator:String = ","): Unit = JsonCompat.parseJsonFileToCSVFile(jsonPath, csvPath, spliterator)
+  def parseJsonToCSVFile(
+      jsonPath: String,
+      csvPath: String,
+      spliterator: String = ",",
+  ): Unit = JsonCompat.parseJsonFileToCSVFile(jsonPath, csvPath, spliterator)
 
+  def readCSV(file: String, limit: Int = -1): DataFrame[AnyRef] = CSVCompat
+    .readCSV(file, limit)
 
-  def readCSV(file: String, limit: Int = -1): DataFrame[AnyRef] = CSVCompat.readCSV(file, limit)
+  def readJson(
+      jsonPath: String,
+      isJsonLine: Boolean = false,
+      recursionHeader: Boolean = false,
+  ): DataFrame[AnyRef] =
+    if !isJsonLine then JsonCompat.parseJsonFileToDataFrame(jsonPath)
+    else readJsonLine(jsonPath, recursionHeader)
 
-  def readJson(jsonPath: String, isJsonLine: Boolean = false, recursionHeader: Boolean = false): DataFrame[AnyRef] = {
-    if !isJsonLine then JsonCompat.parseJsonFileToDataFrame(jsonPath)  else readJsonLine(jsonPath, recursionHeader)
-  }
+  def readJsonLine(
+      jsonPath: String,
+      recursionHeader: Boolean = false,
+      limit: Int = -1,
+  ): DataFrame[AnyRef] = JsonCompat
+    .parseJsonLineToDataFrame(jsonPath, recursionHeader, limit)
 
-  def readJsonLine(jsonPath: String, recursionHeader: Boolean = false, limit: Int = -1): DataFrame[AnyRef] = JsonCompat.parseJsonLineToDataFrame(jsonPath, recursionHeader, limit)
+  def readXlsx(xlsxPath: String): DataFrame[AnyRef] = XlsxCompat
+    .readXlsx(xlsxPath)
 
-  def readXlsx(xlsxPath: String): DataFrame[AnyRef] = XlsxCompat.readXlsx(xlsxPath)
-
-  def readPickle[T:ClassTag](picklePath: String): DataFrame[T] = {
+  def readPickle[T: ClassTag](picklePath: String): DataFrame[T] = {
     val caseSeq = PickleCompat.readPickleForCaseClassSeq[T](picklePath)
     fromCaseClassSeq(caseSeq)
   }
@@ -252,17 +360,18 @@ object DataFrame {
     map
   }
 
-  def readPickleForNumpy(picklePath: String): MulitNumpyNdArray = {
-    PickleCompat.readPickleForNumpy(picklePath)
-  }
+  def readPickleForNumpy(picklePath: String): MulitNumpyNdArray = PickleCompat
+    .readPickleForNumpy(picklePath)
 
   /** Reads an Apache Avro file. */
   def readIPC(file: String): DataFrame[AnyRef] = PolarsCompat.readIPC(file)
 
   /** Reads an Apache Parquet file. */
-  def readParquet(file: String): DataFrame[AnyRef] = PolarsCompat.readParquet(file)
+  def readParquet(file: String): DataFrame[AnyRef] = PolarsCompat
+    .readParquet(file)
 
-  def readJsonLinePolars(file: String): DataFrame[AnyRef] = PolarsCompat.readJsonLine(file)
+  def readJsonLinePolars(file: String): DataFrame[AnyRef] = PolarsCompat
+    .readJsonLine(file)
 //
 //  /** Reads an ARFF file. */
 //  def readArff(file: Path): DataFrame = Read.arff(file)
@@ -288,7 +397,6 @@ object DataFrame {
   /** Reads an Apache Avro file. */
 //  def readAvro(file: String, schema: InputStream): DataFrame[AnyRef] = PolarsCompat.readAvro(file, schema)
 
-
   /** Reads an Apache Parquet file. */
 //  def readParquet(file: Path): DataFrame = Read.parquet(file)
 
@@ -303,7 +411,6 @@ object DataFrame {
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] =
     Comparison.compare(df1, df2)
 
-
   /** Read the specified csv file and return the data as a data frame.
     *
     * @param file
@@ -314,7 +421,8 @@ object DataFrame {
     *   if an error reading the file occurs
     */
   @throws[IOException]
-  def readCsv(file: String, limit: Int = -1): DataFrame[AnyRef] = Serialization.readCsv(file, limit =limit)
+  def readCsv(file: String, limit: Int = -1): DataFrame[AnyRef] = Serialization
+    .readCsv(file, limit = limit)
 
   /** Read csv records from an input stream and return the data as a data frame.
     *
@@ -326,25 +434,35 @@ object DataFrame {
     *   if an error reading the stream occurs
     */
   @throws[IOException]
-  def readCsv(input: InputStream,limit: Int): DataFrame[AnyRef] = Serialization
+  def readCsv(input: InputStream, limit: Int): DataFrame[AnyRef] = Serialization
     .readCsv(input, limit = limit)
 
   @throws[IOException]
-  def readCsv(file: String, separator: String,limit: Int): DataFrame[AnyRef] =
-    Serialization.readCsv(file, separator, NumberDefault.LONG_DEFAULT, limit = limit)
+  def readCsv(file: String, separator: String, limit: Int): DataFrame[AnyRef] =
+    Serialization
+      .readCsv(file, separator, NumberDefault.LONG_DEFAULT, limit = limit)
 
   @throws[IOException]
-  def readCsv(input: InputStream, separator: String,limit: Int): DataFrame[AnyRef] =
-    Serialization.readCsv(input, separator, NumberDefault.LONG_DEFAULT, null, limit = limit)
+  def readCsv(
+      input: InputStream,
+      separator: String,
+      limit: Int,
+  ): DataFrame[AnyRef] = Serialization
+    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, null, limit = limit)
 
   @throws[IOException]
   def readCsv(
       input: InputStream,
       separator: String,
       naString: String,
-             limit: Int,
-  ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, naString, limit = limit)
+      limit: Int,
+  ): DataFrame[AnyRef] = Serialization.readCsv(
+    input,
+    separator,
+    NumberDefault.LONG_DEFAULT,
+    naString,
+    limit = limit,
+  )
 
   @throws[IOException]
   def readCsv(
@@ -352,9 +470,15 @@ object DataFrame {
       separator: String,
       naString: String,
       hasHeader: Boolean,
-             limit: Int,
-  ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, naString, hasHeader, limit = limit)
+      limit: Int,
+  ): DataFrame[AnyRef] = Serialization.readCsv(
+    input,
+    separator,
+    NumberDefault.LONG_DEFAULT,
+    naString,
+    hasHeader,
+    limit = limit,
+  )
 
   @throws[IOException]
   def readCsv(
@@ -362,9 +486,15 @@ object DataFrame {
       separator: String,
       naString: String,
       hasHeader: Boolean,
-      limit: Int
-  ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, NumberDefault.LONG_DEFAULT, naString, hasHeader, limit = limit)
+      limit: Int,
+  ): DataFrame[AnyRef] = Serialization.readCsv(
+    file,
+    separator,
+    NumberDefault.LONG_DEFAULT,
+    naString,
+    hasHeader,
+    limit = limit,
+  )
 
   @throws[IOException]
   def readCsv(
@@ -373,7 +503,7 @@ object DataFrame {
       numberDefault: DataFrame.NumberDefault,
       naString: String,
       hasHeader: Boolean,
-      limit: Int
+      limit: Int,
   ): DataFrame[AnyRef] = Serialization
     .readCsv(file, separator, numberDefault, naString, hasHeader, limit = limit)
 
@@ -382,8 +512,9 @@ object DataFrame {
       file: String,
       separator: String,
       longDefault: DataFrame.NumberDefault,
-      limit: Int
-  ): DataFrame[AnyRef] = Serialization.readCsv(file, separator, longDefault, limit = limit)
+      limit: Int,
+  ): DataFrame[AnyRef] = Serialization
+    .readCsv(file, separator, longDefault, limit = limit)
 
   @throws[IOException]
   def readCsv(
@@ -391,7 +522,7 @@ object DataFrame {
       separator: String,
       longDefault: DataFrame.NumberDefault,
       naString: String,
-             limit: Int
+      limit: Int,
   ): DataFrame[AnyRef] = Serialization
     .readCsv(file, separator, longDefault, naString, limit = limit)
 
@@ -400,7 +531,7 @@ object DataFrame {
       input: InputStream,
       separator: String,
       longDefault: DataFrame.NumberDefault,
-      limit: Int
+      limit: Int,
   ): DataFrame[AnyRef] = Serialization
     .readCsv(input, separator, longDefault, null, limit = limit)
 
@@ -551,8 +682,8 @@ object DataFrame {
   /** An enumeration of plot types for displaying data frames with charts.
     */
   enum PlotType:
-    case SCATTER, SCATTER_WITH_TREND, LINE, LINE_AND_POINTS, AREA, BAR, GRID, HEATMAP,
-      GRID_WITH_TREND
+    case SCATTER, SCATTER_WITH_TREND, LINE, LINE_AND_POINTS, AREA, BAR, GRID,
+      HEATMAP, GRID_WITH_TREND
 
   /** An enumeration of data frame axes.
     */
@@ -591,14 +722,14 @@ object DataFrame {
       }
     if (args.length > 0 && "compare".equalsIgnoreCase(args(0)))
       if (frames.size == 2) {
-        System.out.println(DataFrame.compare(frames(0), frames(1)))
+        logger.info(s"${DataFrame.compare(frames(0),frames(1))}")
         return
       }
     if (args.length > 0 && "shell".equalsIgnoreCase(args(0))) {
       Shell.repl(frames.toList)
       return
     }
-    System.err.printf(
+    logger.error(
       "usage: %s [compare|plot|show|shell] [csv-file ...]\n",
       classOf[DataFrame[?]].getCanonicalName,
     )
@@ -671,7 +802,7 @@ class DataFrame[V](
 
   def this(
       index: Seq[AnyRef],
-      columns: Seq[AnyRef], //mutable.Seq[Any],
+      columns: Seq[AnyRef], // mutable.Seq[Any],
       data: List[Seq[V]],
   ) = {
     this()
@@ -686,7 +817,8 @@ class DataFrame[V](
   }
 
   def resetColumns = {
-    val colNums = this.getColumns.zipWithIndex.map( ele => ele._2.asInstanceOf[AnyRef])
+    val colNums = this.getColumns.zipWithIndex
+      .map(ele => ele._2.asInstanceOf[AnyRef])
     this.columns = new Index(colNums, colNums.size)
     this
   }
@@ -695,12 +827,18 @@ class DataFrame[V](
     val castDf = this.resetColumns.cast(implicitly[ClassTag[V1]].runtimeClass)
 //    val castDf = this.resetColumns.cast(implicitly[ClassTag[Double]].runtimeClass)
     val dataFrame = castDf.toModelMatrixDataFrame
-    println(s"Dataframe toNumpyNDArray, invoke from toModelMatrixDataFrame get dataframe: columns : ${dataFrame.getColumns.mkString(", ")} ,column size : ${dataFrame.getColumns.size}  shape: ${dataFrame.getShape}")
-    val data:Array[Array[V1]] =dataFrame.toModelMatrix(fillValue) //.toModelMatrix()
+    logger.info(
+      s"Dataframe toNumpyNDArray, invoke from toModelMatrixDataFrame get dataframe: columns : ${dataFrame
+          .getColumns.mkString(", ")} ,column size : ${dataFrame.getColumns
+          .size}  shape: ${dataFrame.getShape}",
+    )
+    val data: Array[Array[V1]] = dataFrame.toModelMatrix(fillValue) // .toModelMatrix()
 
     val data2 = this.toModelMatrix(fillValue)
-    println(s"data2 ${data2.getClass.getName}, data2 size ${data2.length} tag  ${data2.mkString(", ")} ")
-    println(s"data ${data.getClass.getName} , data2 size ${data2.length} tag ${data.mkString(", ")} ")
+    logger.info(s"data2 ${data2.getClass.getName}, data2 size ${data2
+        .length} tag  ${data2.mkString(", ")} ")
+    logger.info(s"data ${data.getClass.getName} , data2 size ${data2
+        .length} tag ${data.mkString(", ")} ")
     val rows = this.getShape._1 // data.size
     val cols = this.getShape._2 // data.head.size
     val flattenedData = data.flatMap {
@@ -708,34 +846,32 @@ class DataFrame[V](
 //      case seq: Seq[V1] => seq.toArray
       case single: V1 => Array(single)
       case ss: Array[AnyRef] =>
-        println(s"error case ${data.getClass.getName}")
-        data.flatten.map(ele => {
-          println(s"ele ${ele.getClass.getName} ${ele}")
+        logger.error(s"error case ${data.getClass.getName}")
+        data.flatten.map { ele =>
+          logger.error(s"ele ${ele.getClass.getName} $ele")
           ele.toString.asInstanceOf[V1]
-        }).toArray
+        }.toArray
       case other =>
-        println(s"error case se ${data.getClass.getName}")
-        try {
-          other.asInstanceOf[Array[V1]]
-        } catch {
+        logger.error(s"error case se ${data.getClass.getName}")
+        try other.asInstanceOf[Array[V1]]
+        catch {
           case _: ClassCastException =>
-            println(s"Failed to cast $other to Array[V1]. Using empty array.")
+            logger.error(s"Failed to cast $other to Array[V1]. Using empty array.")
             Array.empty[V1]
         }
 //        data.flatten.map(ele => {
 //          println(s"ele ${ele.getClass.getName} ${ele}")
 //          ele.toString.asInstanceOf[V1]
 //        }).toArray
-    }.map { elem =>
-      try {
-        elem.asInstanceOf[V1] //.toString.toDouble
-      } catch {
+    }.map(elem =>
+      try elem.asInstanceOf[V1] // .toString.toDouble
+      catch {
         case _: NumberFormatException =>
-          println(s"Failed to convert $elem to Double. Using fillValue $fillValue instead.")
+          logger.error(s"Failed to convert $elem to Double. Using fillValue $fillValue instead.")
           fillValue.asInstanceOf[V1]
-      }
-    }
-    //.map { elem =>
+      },
+    )
+    // .map { elem =>
 //      try {
 //        elem.toString.toDouble
 //      } catch {
@@ -744,10 +880,12 @@ class DataFrame[V](
 //          fillValue
 //      }
 //    }
-    println(s" flattenedData ${flattenedData.getClass.getComponentType.getName} ${flattenedData.mkString(", ")}")
+    logger.info(s" flattenedData ${flattenedData.getClass.getComponentType
+        .getName} ${flattenedData.mkString(", ")}")
 
-    val ndArray: NDArray[?] = TorchNumpy.array(flattenedData,Array(rows,cols),2,tag)
-    ndArray.reshape(rows,cols)
+    val ndArray: NDArray[?] = TorchNumpy
+      .array(flattenedData, Array(rows, cols), 2, tag)
+    ndArray.reshape(rows, cols)
   }
 
   //    val array = new NDArray[V](rows, cols)
@@ -757,36 +895,49 @@ class DataFrame[V](
 
   def values[T: ClassTag](isAllBoolean: Boolean = false) = {
 
-    val numDf = if isAllBoolean then this else  this.numeric
-    if(numDf.getColumns.size == 0) {
-      throw new IllegalArgumentException("DataFrame must contain at least one numeric column.")
-    }else{
-      numDf.transpose.toNumpyNDArray[T]().reshape(numDf.getShape._1, numDf.getShape._2)
-    }
+    val numDf = if isAllBoolean then this else this.numeric
+    if (numDf.getColumns.size == 0) {
+      logger.error(s"DataFrame must contain at least one numeric column.")
+      throw new IllegalArgumentException(
+      "DataFrame must contain at least one numeric column.",
+    )
+    } else numDf.transpose.toNumpyNDArray[T]()
+      .reshape(numDf.getShape._1, numDf.getShape._2)
 
   }
 
-  /**
-   * 获取 DataFrame 的行数和列数。
-   *
-   * @return 包含行数和列数的元组，格式为 (行数, 列数)
-   */
+  /** 获取 DataFrame 的行数和列数。
+    *
+    * @return
+    *   包含行数和列数的元组，格式为 (行数, 列数)
+    */
   def getShape: (Int, Int) = {
     val rows = data.length()
     val cols = data.size()
     (rows, cols)
   }
-  /**
-   * 将 DataFrame 分割为训练集和测试集，同时分离特征和标签。
-   *
-   * @param labelCol    标签列的名称
-   * @param testSize    测试集所占比例，范围在 0 到 1 之间
-   * @param randomState 随机种子，用于复现分割结果
-   * @return 包含训练集特征、测试集特征、训练集标签、测试集标签的四元组
-   */
-  def train_test_split(labelCol: AnyRef, testSize: Double = 0.2, randomState: Int = 42): (DataFrame[V], DataFrame[V], DataFrame[V], DataFrame[V]) = {
+
+  /** 将 DataFrame 分割为训练集和测试集，同时分离特征和标签。
+    *
+    * @param labelCol
+    *   标签列的名称
+    * @param testSize
+    *   测试集所占比例，范围在 0 到 1 之间
+    * @param randomState
+    *   随机种子，用于复现分割结果
+    * @return
+    *   包含训练集特征、测试集特征、训练集标签、测试集标签的四元组
+    */
+  def train_test_split(
+      labelCol: AnyRef,
+      testSize: Double = 0.2,
+      randomState: Int = 42,
+  ): (DataFrame[V], DataFrame[V], DataFrame[V], DataFrame[V]) = {
     require(testSize > 0 && testSize < 1, "test dataset ratio must set  0 ~ 1 ")
-    require(this.getColumns.contains(labelCol), s"标签列 $labelCol 不存在于 DataFrame 中")
+    require(
+      this.getColumns.contains(labelCol),
+      s"标签列 $labelCol 不存在于 DataFrame 中",
+    )
 
     // 设置随机种子
     scala.util.Random.setSeed(randomState)
@@ -802,7 +953,8 @@ class DataFrame[V](
     val featureCols = columns.names.filterNot(_ == labelCol)
 
     // 提取训练集和测试集的特征和标签
-    val X_train = this.retain(featureCols.map(_.toString)).filterRows(trainIndices)
+    val X_train = this.retain(featureCols.map(_.toString))
+      .filterRows(trainIndices)
     val X_test = this.retain(featureCols.map(_.toString)).filterRows(testIndices)
     val y_train = this.retain(Seq(labelCol.toString)).filterRows(trainIndices)
     val y_test = this.retain(Seq(labelCol.toString)).filterRows(testIndices)
@@ -810,37 +962,34 @@ class DataFrame[V](
     (X_train, X_test, y_train, y_test)
   }
 
-  /**
-   * 根据给定的行索引过滤 DataFrame。
-   *
-   * @param indices 要保留的行索引序列
-   * @return 过滤后的 DataFrame
-   */
+  /** 根据给定的行索引过滤 DataFrame。
+    *
+    * @param indices
+    *   要保留的行索引序列
+    * @return
+    *   过滤后的 DataFrame
+    */
   private def filterRows(indices: Seq[Int]): DataFrame[V] = {
     val newData = indices.map(i => this.data.getRow(i)).toList
     new DataFrame[V](
       index = new Index(indices.map(index.names(_)), indices.size),
       columns = columns,
       data = new BlockManager[V](newData.transpose),
-      groups = groups
+      groups = groups,
     )
   }
 
-  def writeParquet(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
-    PolarsCompat.writeParquet(dataFrame,outPath)
-  }
+  def writeParquet(dataFrame: DataFrame[AnyRef], outPath: String): Unit =
+    PolarsCompat.writeParquet(dataFrame, outPath)
 
-  def writeAvro(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
-    PolarsCompat.writeAvro(dataFrame,outPath)
-  }
+  def writeAvro(dataFrame: DataFrame[AnyRef], outPath: String): Unit =
+    PolarsCompat.writeAvro(dataFrame, outPath)
 
-  def writeJsonLine(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
-    PolarsCompat.writeJsonLine(dataFrame,outPath)
-  }
+  def writeJsonLine(dataFrame: DataFrame[AnyRef], outPath: String): Unit =
+    PolarsCompat.writeJsonLine(dataFrame, outPath)
 
-  def writeIPC(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
-    PolarsCompat.writeIPC(dataFrame,outPath)
-  }
+  def writeIPC(dataFrame: DataFrame[AnyRef], outPath: String): Unit =
+    PolarsCompat.writeIPC(dataFrame, outPath)
 
 //  def this(index: Index, columns: Index, data: BlockManager[V], groups: Grouping[V]) = this(index, columns, data, groups)
 
@@ -911,54 +1060,66 @@ class DataFrame[V](
 //    this.groups = groups
 //  }
 
-  /***
-   * 将case class转换为DataFrame
-   * @param records
-   * @param transpose
-   * @param tag
-   * @tparam T
-   * @return
-   */
-  def caseClassSeqToDataFrame[T](records: Seq[T], transpose: Boolean = true)(implicit tag: ClassTag[T]): DataFrame[T] = {
+  /** * 将case class转换为DataFrame
+    * @param records
+    * @param transpose
+    * @param tag
+    * @tparam T
+    * @return
+    */
+  def caseClassSeqToDataFrame[T](records: Seq[T], transpose: Boolean = true)(
+      implicit tag: ClassTag[T],
+  ): DataFrame[T] = {
     val fieldNames = tag.runtimeClass.getDeclaredFields.map(_.getName).toSeq
-    val rows = records.map(record => fieldNames.map(fieldName => record.getClass.getMethod(fieldName).invoke(record)))
-    val rowIndex = (0 until fieldNames.size).map(_.toString).toSeq //rows.size
-    val df = new DataFrame[T](rowIndex, fieldNames.asInstanceOf[Seq[String]], rows.asInstanceOf[List[Seq[T]]])
+    val rows = records.map(record =>
+      fieldNames
+        .map(fieldName => record.getClass.getMethod(fieldName).invoke(record)),
+    )
+    val rowIndex = (0 until fieldNames.size).map(_.toString).toSeq // rows.size
+    val df = new DataFrame[T](
+      rowIndex,
+      fieldNames.asInstanceOf[Seq[String]],
+      rows.asInstanceOf[List[Seq[T]]],
+    )
     if transpose then return df.transpose else return df
   }
 
-  /***
-   *
-   * @param args
-   * @param tag
-   * @tparam T
-   * @return
-   */
+  /** *
+    *
+    * @param args
+    * @param tag
+    * @tparam T
+    * @return
+    */
   def tagClassToInstance[T](args: List[Any])(implicit tag: ClassTag[T]): T = {
     val constructor = tag.runtimeClass.getConstructors.head
     //    val args = constructor.getParameterTypes.map(_ => null)
     constructor.newInstance(args*).asInstanceOf[T]
   }
 
-  /***
-   *
-   * @param df
-   * @param transpose
-   * @param tag
-   * @tparam T
-   * @return
-   */
-  def dataFrameToCaseClass[T](transpose: Boolean = false)(implicit tag: ClassTag[T]): Seq[T] = {
+  /** *
+    *
+    * @param df
+    * @param transpose
+    * @param tag
+    * @tparam T
+    * @return
+    */
+  def dataFrameToCaseClass[T](
+      transpose: Boolean = false,
+  )(implicit tag: ClassTag[T]): Seq[T] = {
     // 获取 case class 的字段名
     val fieldNames = tag.runtimeClass.getDeclaredFields.map(_.getName).toSeq
     // 获取 DataFrame 的数据行
-    val rowValueSeq = if transpose then this.transpose.iterrows else this.iterrows
-    val records = rowValueSeq.map { row =>
+    val rowValueSeq =
+      if transpose then this.transpose.iterrows else this.iterrows
+    val records = rowValueSeq.map(row =>
       // 获取 case class 的构造函数
-      tagClassToInstance(row)
-    }
+      tagClassToInstance(row),
+    )
     records.toSeq
   }
+
   /** Add new columns to the data frame.
     *
     * Any existing rows will have {@code null} values for the new columns.
@@ -1063,19 +1224,20 @@ class DataFrame[V](
     *   a shallow copy of the data frame with the columns removed
     */
   def drop(cols: AnyRef*): DataFrame[V] = {
-    println(s"Class DataFrame will drop cols: ->  ${cols.mkString(", ")}")
+    logger.info(s"Class DataFrame will drop cols: ->  ${cols.mkString(", ")}")
     val dropCols = columns.indices(cols)
-    dropWithIntCols(dropCols,indet = true)
+    dropWithIntCols(dropCols, indet = true)
   }
 
   def dropWithIntCols(cols: Seq[Int], indet: Boolean = true): DataFrame[V] = {
     val colNames = columns.names.toList
     val toDrop = cols.toSeq.map(colNames(_))
-    println("dataframe.drop cols name : " + toDrop.mkString(", "))
+    logger.info("dataframe.drop cols name : " + toDrop.mkString(", "))
     val newColNames = colNames.filterNot(toDrop.contains)
-    val keep = newColNames.map(ele => col(ele.toString)) //.map(_.asScala.toSeq)
-    new DataFrame[V](index.names, Seq(newColNames *), keep) //mutable.Seq(newColNames*)
+    val keep = newColNames.map(ele => col(ele.toString)) // .map(_.asScala.toSeq)
+    new DataFrame[V](index.names, Seq(newColNames*), keep) // mutable.Seq(newColNames*)
   }
+
   /** Create a new data frame by leaving out the specified columns.
     *
     * <pre> {@code > DataFrame<Object> df = new DataFrame<>("name", "value",
@@ -1086,13 +1248,13 @@ class DataFrame[V](
     * @return
     *   a shallow copy of the data frame with the columns removed
     */
-  def drop(cols: Seq[Int], indet:Boolean = true): DataFrame[V] = {
+  def drop(cols: Seq[Int], indet: Boolean = true): DataFrame[V] = {
     val colNames = columns.names.toList
     val toDrop = cols.toSeq.map(colNames(_))
 //    println("dataframe.drop cols name : " + toDrop.mkString(", "))
     val newColNames = colNames.filterNot(toDrop.contains)
-    val keep = newColNames.map(ele => col(ele.toString)) //.map(_.asScala.toSeq)
-    new DataFrame[V](index.names, Seq(newColNames*), keep)  //mutable.Seq(newColNames*)
+    val keep = newColNames.map(ele => col(ele.toString)) // .map(_.asScala.toSeq)
+    new DataFrame[V](index.names, Seq(newColNames*), keep) // mutable.Seq(newColNames*)
   }
 //  def drop(cols: Int*): DataFrame[V] = {
 //    val colnames = new  ListBuffer[AnyRef](columns.names)
@@ -1143,11 +1305,11 @@ class DataFrame[V](
     * @param cols
     *   the columns to include in the new data frame
     * @return
-    *   a new data frame containing only the specified columns
-   *   name '[Ljava.lang.String;@3c6d2f1' not in index indexMap: (category,0),(name,
+    *   a new data frame containing only the specified columns name
+    *   '[Ljava.lang.String;@3c6d2f1' not in index indexMap: (category,0),(name,
     */
   def retain(cols: Seq[String]): DataFrame[V] = {
-    println(s"dataframe retain cols ${cols.length} cols ${cols.mkString(",")}")
+    logger.info(s"dataframe retain cols ${cols.length} cols ${cols.mkString(",")}")
     val indicesIndex = columns.indices(cols).toSeq
     retains(indicesIndex)
   }
@@ -1167,7 +1329,8 @@ class DataFrame[V](
   def retains(cols: Seq[Int]): DataFrame[V] = {
     val keep = cols.toSet
     val toDrop = (0 until size).filterNot(keep.contains)
-    println(s"dataframe retain keep ${keep.mkString(",")} toDrop ${toDrop.length} cols ${cols.mkString(",")}")
+    logger.info(s"dataframe retain keep ${keep.mkString(",")} toDrop ${toDrop
+        .length} cols ${cols.mkString(",")}")
     dropWithIntCols(toDrop.toSeq)
   }
 //  def retain(cols: Int*): DataFrame[V] = {
@@ -1220,7 +1383,7 @@ class DataFrame[V](
     *   a new data frame with index specified
     */
   def reindex(cols: Array[Int], drop: Boolean): DataFrame[V] = {
-    println(s"dataframe reindex inner Array[Int] cols ${cols.mkString(",")}")
+    logger.info(s"dataframe reindex inner Array[Int] cols ${cols.mkString(",")}")
     val df = Index.reindex(this, cols*)
     if (drop) df.drop(cols.toSeq) else df
   }
@@ -1274,7 +1437,8 @@ class DataFrame[V](
     *   a new data frame with index specified
     */
   def reindex(cols: Array[AnyRef], drop: Boolean = false): DataFrame[V] =
-    println(s"dataframe reindex outer cols: Array[AnyRef] -> cols ${cols.toSeq.mkString(",")}")
+    logger.info(s"dataframe reindex outer cols: Array[AnyRef] -> cols ${cols.toSeq
+        .mkString(",")}")
     reindex(columns.indices(cols), drop)
 
   /** Re-index the rows of the data frame using the specified column names and
@@ -1340,7 +1504,8 @@ class DataFrame[V](
     * @return
     *   the data frame with the new data appended
     */
-  def append(row: Seq[? <: V]): DataFrame[V] = append(length.asInstanceOf[AnyRef], row)
+  def append(row: Seq[? <: V]): DataFrame[V] =
+    append(length.asInstanceOf[AnyRef], row)
 
   /** Append rows indexed by the the specified name to the data frame.
     *
@@ -1362,9 +1527,8 @@ class DataFrame[V](
     columns.extend(row.size)
     data.reshape(columns.names.size, len + 1)
 //    row.zipWithIndex.foreach { case (value, c) => data.set(value, c, len) }
-    for (c <- 0 until data.size()) {
-      data.set(if (c < row.size) then row(c) else null.asInstanceOf[V], c, len)
-    }
+    for (c <- 0 until data.size()) data
+      .set(if c < row.size then row(c) else null.asInstanceOf[V], c, len)
     this
   }
 
@@ -1419,7 +1583,7 @@ class DataFrame[V](
     */
   final def join(other: DataFrame[V]): DataFrame[V] = {
     val df = join(other, DataFrame.JoinType.LEFT, null)
-    println(s"Dataframe finish Join df index -> ${df.getIndex.mkString(",")} ")
+    logger.info(s"Dataframe finish Join df index -> ${df.getIndex.mkString(",")} ")
     df
   }
 
@@ -1471,7 +1635,9 @@ class DataFrame[V](
       on: DataFrame.KeyFunction[V],
   ): DataFrame[V] = {
     val df = Combining.join(this, other, join, on)
-    println(s"Dataframe Inner Join finish df index -> ${df.getIndex.mkString(",")} ")
+    logger.info(
+      s"Dataframe Inner Join finish df index -> ${df.getIndex.mkString(",")} ",
+    )
     df
   }
 
@@ -1683,13 +1849,19 @@ class DataFrame[V](
     *   the value
     */
   def get(row: AnyRef, col: AnyRef): V = {
-    println("DataFrame.get: row class " + row.getClass.getName + ", col class " + col.getClass.getName)
-    val rows  = index.get(row)
-    val colz =  columns.get(col)
+    logger.info(
+      "DataFrame.get: row class " + row.getClass.getName + ", col class " +
+        col.getClass.getName,
+    )
+    val rows = index.get(row)
+    val colz = columns.get(col)
 //    val view = data.get(colz.toInt, rows.toInt)
 //    view
 //    get(rows.toInt,colz.toInt)
-    getFromIndex(index.get(row).asInstanceOf[Int], columns.get(col).asInstanceOf[Int])
+    getFromIndex(
+      index.get(row).asInstanceOf[Int],
+      columns.get(col).asInstanceOf[Int],
+    )
   }
 
   /** Return the value located by the (row, column) coordinates.
@@ -1716,17 +1888,31 @@ class DataFrame[V](
   //      columns: Seq[AnyRef], //mutable.Seq[Any],
   //      data: List[Seq[V]],
 
-  def indexSelect(indexSeq: Seq[AnyRef]): DataFrame[V] ={
+  def indexSelect(indexSeq: Seq[AnyRef]): DataFrame[V] = {
     val selectIndexNums = indexSeq.map(indexName => index.get(indexName))
-    val selectRowSeq = this.iterrows.filter(selectIndexNums.contains(_)).map(_.toSeq).toList
-    val selectDF = new DataFrame(selectIndexNums.map(_.asInstanceOf[AnyRef]), this.getColumns, selectRowSeq)
+    val selectRowSeq = this.iterrows.filter(selectIndexNums.contains(_))
+      .map(_.toSeq).toList
+    val selectDF = new DataFrame(
+      selectIndexNums.map(_.asInstanceOf[AnyRef]),
+      this.getColumns,
+      selectRowSeq,
+    )
     selectDF
   }
 
-  def indexSelect(indexSeq: Seq[Int],isNumber:Boolean = true): DataFrame[V] = {
+  def indexSelect(
+      indexSeq: Seq[Int],
+      isNumber: Boolean = true,
+  ): DataFrame[V] = {
     val selectIndexNums = indexSeq.map(indexName => this.index.getInt(indexName))
-    val selectRowSeq = this.iterrows.zipWithIndex.filter(rowIndex => selectIndexNums.contains(rowIndex._2)).map(_._1).toList
-    val selectDF = new DataFrame(selectIndexNums.map(_.asInstanceOf[AnyRef]), this.getColumns, selectRowSeq.transpose)
+    val selectRowSeq = this.iterrows.zipWithIndex
+      .filter(rowIndex => selectIndexNums.contains(rowIndex._2)).map(_._1)
+      .toList
+    val selectDF = new DataFrame(
+      selectIndexNums.map(_.asInstanceOf[AnyRef]),
+      this.getColumns,
+      selectRowSeq.transpose,
+    )
     selectDF
   }
 //    val selectIndexNums = indexSeq.map(indexName => index.getInt(indexName))
@@ -1734,13 +1920,12 @@ class DataFrame[V](
 //    val selectDF = new DataFrame(selectIndexNums.map(_.asInstanceOf[AnyRef]), this.getColumns, selectRowSeq)
 //    selectDF
 
-
-
   def columnSelect(colStart: Int, colEnd: Int): DataFrame[V] =
     slice(0, length, colStart, colEnd)
 
   def columnSelect(cols: Seq[AnyRef]): DataFrame[V] =
-    val featureCols = cols.map(col => columns.names.filter(_.equals(col))).flatten
+    val featureCols = cols.map(col => columns.names.filter(_.equals(col)))
+      .flatten
     val selectDF = this.retain(featureCols.map(_.toString))
     selectDF
 
@@ -1825,7 +2010,7 @@ class DataFrame[V](
 
   def col(column: AnyRef): Seq[V] = col_with_view(columns.get(column)).toSeq
 
-  def colInt(column: Int, index:Boolean = true) =
+  def colInt(column: Int, index: Boolean = true) =
 //    println("DataFrame.col: column index:  " + column)
     val views = new Views.SeriesListView[V](this, column, true)
     views.toSeq
@@ -1879,9 +2064,9 @@ class DataFrame[V](
     *   the list of values
     */
   def row_index(row: Int) = {
-    println(s"Dataframe row_index method row: ${row}")
+    logger.debug(s"Dataframe row_index method row: $row")
     val view = new Views.SeriesListView[V](this, row, false)
-    println(s"Dataframe row_index method view: ${view}")
+    logger.debug(s"Dataframe row_index method view: $view")
     view.toSeq
   }
 
@@ -1998,7 +2183,7 @@ class DataFrame[V](
     *
     * @return
     *   a new data frame with the rows and columns transposed
-   *   //index.names.asInstanceOf[mutable.Seq[Any]],
+    *   //index.names.asInstanceOf[mutable.Seq[Any]],
     */
   def transpose = new DataFrame[V](
     columns.names,
@@ -2019,21 +2204,21 @@ class DataFrame[V](
     *   the function to apply
     * @return
     *   a new data frame with the function results
-   *   //columns.names.asInstanceOf[mutable.Seq[Any]],
+    *   //columns.names.asInstanceOf[mutable.Seq[Any]],
     */
   def apply[U](function: DataFrame.Function[V, U]) = new DataFrame[U](
     index.names,
     columns.names,
-    new Views.TransformedView[V, U](this, function, false)
-      .map(_.toSeq).toList,
+    new Views.TransformedView[V, U](this, function, false).map(_.toSeq).toList,
   )
 
   def transform[U](transform: DataFrame.RowFunction[V, U]): DataFrame[U] = {
     val transformed = new DataFrame[U](columns.names.map(_.toString)*)
     val it = this.getIndex.iterator
-    for (row <- this)
-      for (trans <- transform.apply(row)) transformed
-        .append(if (it.hasNext) it.next else transformed.length.asInstanceOf[AnyRef], trans)
+    for (row <- this) for (trans <- transform.apply(row)) transformed.append(
+      if (it.hasNext) it.next else transformed.length.asInstanceOf[AnyRef],
+      trans,
+    )
     transformed
   }
 
@@ -2154,8 +2339,8 @@ class DataFrame[V](
   @SuppressWarnings(Array("unchecked"))
   def toArray[U](array: Array[Array[U]]): Array[Array[U]] = {
     if (array.length >= size && array.length > 0 && array(0).length >= length)
-      for (c <- 0 until size)
-        for (r <- 0 until length) array(r)(c) = getFromIndex(r, c).asInstanceOf[U]
+      for (c <- 0 until size) for (r <- 0 until length)
+        array(r)(c) = getFromIndex(r, c).asInstanceOf[U]
     toArray(array.getClass).asInstanceOf[Array[Array[U]]]
   }
 
@@ -2258,7 +2443,8 @@ class DataFrame[V](
     */
   def toModelMatrix[V1: ClassTag](fillValue: Any): Array[Array[V1]] = {
     val tag = implicitly[ClassTag[V1]]
-    val matrix = Conversion.toModelMatrix(this.asInstanceOf[DataFrame[V1]], fillValue)
+    val matrix = Conversion
+      .toModelMatrix(this.asInstanceOf[DataFrame[V1]], fillValue)
     matrix.asInstanceOf[Array[Array[V1]]]
   }
 
@@ -2290,15 +2476,15 @@ class DataFrame[V](
     */
   @Timed
   def groupBy(cols: AnyRef*): DataFrame[V] = {
-    println(s"data groupBy ${cols.mkString(",")}")
+    logger.debug(s"data groupBy ${cols.mkString(",")}")
     val indices = columns.indices(cols)
     groupBy_index(indices*)
   }
 
-  def groupBy(cols: AnyRef, index:Boolean = true): DataFrame[V] = {
-//    println(s"data groupBy ${cols.mkString(",")}")
+  def groupBy(cols: AnyRef, index: Boolean = true): DataFrame[V] = {
+//    logger.debug(s"data groupBy ${cols.mkString(",")}")
     val indices = columns.indices(cols.asInstanceOf[Array[Int]].map(_.toString))
-    groupBy_index(indices *)
+    groupBy_index(indices*)
   }
 
   /** Group the data frame rows by the specified columns.
@@ -2452,29 +2638,37 @@ class DataFrame[V](
   def kurt: DataFrame[V] = groups.apply(this, new Aggregation.Kurtosis[V])
 
   @Timed
-  def min: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Aggregation.Min[V])
+  def min: DataFrame[V] = groups
+    .apply(this.numeric.asInstanceOf[DataFrame[V]], new Aggregation.Min[V])
 
   @Timed
-  def max: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Aggregation.Max[V])
+  def max: DataFrame[V] = groups
+    .apply(this.numeric.asInstanceOf[DataFrame[V]], new Aggregation.Max[V])
 
   @Timed
   def median: DataFrame[V] = groups.apply(this, new Aggregation.Median[V])
 
   @Timed
-  def cov: DataFrame[Number] = Aggregation.cov(this.numeric.asInstanceOf[DataFrame[V]])
+  def cov: DataFrame[Number] = Aggregation
+    .cov(this.numeric.asInstanceOf[DataFrame[V]])
 
   @Timed
-  def cumsum: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeSum)
+  def cumsum: DataFrame[V] = groups
+    .apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeSum)
 
   @Timed
-  def cumprod: DataFrame[V] = groups
-    .apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeProduct)
+  def cumprod: DataFrame[V] = groups.apply(
+    this.numeric.asInstanceOf[DataFrame[V]],
+    new Transforms.CumulativeProduct,
+  )
 
   @Timed
-  def cummin: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeMin)
+  def cummin: DataFrame[V] = groups
+    .apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeMin)
 
   @Timed
-  def cummax: DataFrame[V] = groups.apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeMax)
+  def cummax: DataFrame[V] = groups
+    .apply(this.numeric.asInstanceOf[DataFrame[V]], new Transforms.CumulativeMax)
 
   @Timed
   def describe: DataFrame[V] = {
@@ -2483,9 +2677,8 @@ class DataFrame[V](
     Aggregation.describe(conv)
   }
 
-  def pivot(row: AnyRef, col: AnyRef, values: AnyRef*): DataFrame[V] = {
+  def pivot(row: AnyRef, col: AnyRef, values: AnyRef*): DataFrame[V] =
     pivot(List(row), List(col), values)
-  }
 
   def pivot(
       rows: Seq[AnyRef],
@@ -2495,8 +2688,12 @@ class DataFrame[V](
 
     val rowsArray = columns.indices(rows)
     val colsArray = columns.indices(cols)
-    println(s"DataFrame Pivoting -> pivot rows -> ${rows.mkString(",")} | ${rowsArray.mkString(",")} cols-> ${cols.mkString(",")} ${colsArray.mkString(",")} values ${values.mkString(",")}")
-    val valuesArray = columns.indices(values)//.asInstanceOf[Array[AnyRef]])  =Array[Int](2,3) //
+    logger.info(
+      s"DataFrame Pivoting -> pivot rows -> ${rows.mkString(",")} | ${rowsArray
+          .mkString(",")} cols-> ${cols.mkString(",")} ${colsArray
+          .mkString(",")} values ${values.mkString(",")}",
+    )
+    val valuesArray = columns.indices(values) // .asInstanceOf[Array[AnyRef]])  =Array[Int](2,3) //
     pivot(rowsArray, colsArray, valuesArray)
   }
 
@@ -2509,7 +2706,8 @@ class DataFrame[V](
       cols: Array[Int],
       values: Array[Int],
   ): DataFrame[V] = {
-    println(s"DataFrame Pivoting -> pivot rows ${rows.mkString(",")} cols ${cols.mkString(",")} values ${values.mkString(",")}")
+    logger.info(s"DataFrame Pivoting -> pivot rows ${rows.mkString(",")} cols ${cols
+        .mkString(",")} values ${values.mkString(",")}")
     Pivoting.pivot(this, rows, cols, values)
   }
 
@@ -2567,8 +2765,10 @@ class DataFrame[V](
   def numeric: DataFrame[Number] = {
     val numeric = Inspection.numeric(this)
     val keep = Selection.select(columns, numeric).names
-    val keepArray = Array("value","version","age","score") // keep.toSeq//.map(_.asInstanceOf[String])
-    println(s"dataframe keep elect names ->: ${keep.mkString(", ")} numeric keepArray ${keepArray.length} cols ${keepArray.mkString(",")}")
+    val keepArray = Array("value", "version", "age", "score") // keep.toSeq//.map(_.asInstanceOf[String])
+    logger.info(s"dataframe keep elect names ->: ${keep
+        .mkString(", ")} numeric keepArray ${keepArray.length} cols ${keepArray
+        .mkString(",")}")
 //    retain(keepArray).cast(classOf[Number])
     retain(keep.map(_.toString)).cast(classOf[Number])
   }
@@ -2638,36 +2838,23 @@ class DataFrame[V](
     */
   @SuppressWarnings(Array("unchecked"))
   def cast[T](cls: Class[T]): DataFrame[T] = {
-    def convertValue(value: Any): T = {
-      if (value == null) {
-        null.asInstanceOf[T]
-      } else if (cls.isInstance(value)) {
-        value.asInstanceOf[T]
-      } else {
-        cls match {
-          case java.lang.Integer.TYPE  =>
-        value.toString.toInt.asInstanceOf[T]
-          case java.lang.Long.TYPE =>
-        value.toString.toLong.asInstanceOf[T]
-          case java.lang.Double.TYPE  =>
-        value.toString.toDouble.asInstanceOf[T]
-          case java.lang.Float.TYPE  =>
-        value.toString.toFloat.asInstanceOf[T]
-          case java.lang.Short.TYPE  =>
-        value.toString.toShort.asInstanceOf[T]
-          case java.lang.Byte.TYPE  =>
-        value.toString.toByte.asInstanceOf[T]
-          case java.lang.Boolean.TYPE  =>
-        value.toString.toBoolean.asInstanceOf[T]
-          case _ =>
-        value.toString.asInstanceOf[T]
+    def convertValue(value: Any): T =
+      if (value == null) null.asInstanceOf[T]
+      else if (cls.isInstance(value)) value.asInstanceOf[T]
+      else cls match {
+        case java.lang.Integer.TYPE => value.toString.toInt.asInstanceOf[T]
+        case java.lang.Long.TYPE => value.toString.toLong.asInstanceOf[T]
+        case java.lang.Double.TYPE => value.toString.toDouble.asInstanceOf[T]
+        case java.lang.Float.TYPE => value.toString.toFloat.asInstanceOf[T]
+        case java.lang.Short.TYPE => value.toString.toShort.asInstanceOf[T]
+        case java.lang.Byte.TYPE => value.toString.toByte.asInstanceOf[T]
+        case java.lang.Boolean.TYPE => value.toString.toBoolean.asInstanceOf[T]
+        case _ => value.toString.asInstanceOf[T]
 //          case _ =>
 //            throw new IllegalArgumentException(s"Unsupported target type: ${cls.getName}")
-        }
       }
-    }
 
-    val data: List[Seq[T]]  = this.itercols.map(_.map(convertValue)).toList//this.itercols.map(_.map(cls.cast(_))).toList
+    val data: List[Seq[T]] = this.itercols.map(_.map(convertValue)).toList // this.itercols.map(_.map(cls.cast(_))).toList
     val indexSeq: Seq[AnyRef] = index.names
     val columnsSeq: Seq[AnyRef] = columns.names
     new DataFrame[T](indexSeq, columnsSeq, data)

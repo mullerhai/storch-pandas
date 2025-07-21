@@ -17,23 +17,27 @@
  */
 package torch.pandas.component
 
-import torch.pandas.DataFrame
-import torch.pandas.DataFrame.Function
-
 import java.util
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 import scala.collection.*
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
+
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.Function
 
 //    override def get(index: Int) =
 //      new Views.SeriesListView[V](df, index, !transpose)
 //    override def size: Int = if (transpose) df.length else df.size
 
 object Views {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   class ListView[V](val df: DataFrame[V], val transpose: Boolean)
       extends AbstractSeq[List[V]] {
 
-    override def apply(index: Int): List[V] = new Views.SeriesListView[V](df, index, !transpose).toList
+    override def apply(index: Int): List[V] =
+      new Views.SeriesListView[V](df, index, !transpose).toList
 
     override def length: Int = if (transpose) df.length else df.size
 
@@ -52,8 +56,7 @@ object Views {
     }
   }
 
-
-  //util.AbstractList[V]
+  // util.AbstractList[V]
   //    override def get(index: Int): V =
   //      if (transpose) {
   ////        println("Class Views : Transpose get: " + index + ", " + this.index)
@@ -71,15 +74,13 @@ object Views {
       val transpose: Boolean,
   ) extends AbstractSeq[V] {
 
-    override def apply(index: Int): V = {
-      if (transpose) {
+    override def apply(index: Int): V =
+      if (transpose)
         //        println("Class Views : Transpose get: " + index + ", " + this.index)
         df.getFromIndex(index, this.index)
-      } else {
+      else
         //        println("Class Views : Normal get: index num " + index + ",  index map " + this.index)
         df.getFromIndex(this.index, index)
-      }
-    }
 
     override def length: Int = if (transpose) df.length else df.size
 
@@ -87,7 +88,7 @@ object Views {
     override def iterator: Iterator[V] = new Iterator[V] {
       private var currentIndex = 0
 
-      override def hasNext: Boolean = currentIndex <  viewLength
+      override def hasNext: Boolean = currentIndex < viewLength
 
       override def next(): V = {
         val result = apply(currentIndex)
@@ -104,8 +105,8 @@ object Views {
 //
 //    override def size: Int = if (transpose) df.length else df.size
 
-
-    override def apply(index: Int): Map[AnyRef, V] = new Views.SeriesMapView[V](df, index, !transpose)
+    override def apply(index: Int): Map[AnyRef, V] =
+      new Views.SeriesMapView[V](df, index, !transpose)
 
     override def length: Int = if (transpose) df.length else df.size
 
@@ -133,8 +134,10 @@ object Views {
       val names = if (transpose) df.getIndex else df.getColumns
       names.indexOf(key) match {
         case -1 => None
-        case idx =>
-          Some(if (transpose) df.getFromIndex(idx, index) else df.getFromIndex(index, idx))
+        case idx => Some(
+            if (transpose) df.getFromIndex(idx, index)
+            else df.getFromIndex(index, idx),
+          )
       }
     }
 
@@ -148,7 +151,9 @@ object Views {
 
         override def next(): (AnyRef, V) = {
           val key = it.next().asInstanceOf[AnyRef]
-          val value = if (transpose) df.getFromIndex(valueIdx, index) else df.getFromIndex(index, valueIdx)
+          val value =
+            if (transpose) df.getFromIndex(valueIdx, index)
+            else df.getFromIndex(index, valueIdx)
           valueIdx += 1
           (key, value)
         }
@@ -162,7 +167,11 @@ object Views {
     }
 
     // 移除多个键，返回一个新的 Map
-    override def -(key1: AnyRef, key2: AnyRef, keys: AnyRef*): Map[AnyRef, V] = {
+    override def -(
+        key1: AnyRef,
+        key2: AnyRef,
+        keys: AnyRef*,
+    ): Map[AnyRef, V] = {
       val allKeys = Set(key1, key2) ++ keys
       val entries = this.toList.filter { case (k, _) => !allKeys.contains(k) }
       Map(entries: _*)
@@ -208,7 +217,6 @@ object Views {
 //        override def size: Int = return if (transpose) df.length else df.size
 //      }
 
-
   }
 
   class TransformedView[V, U](
@@ -221,7 +229,9 @@ object Views {
 //
 //    override def size: Int = if (transpose) df.length else df.size
 
-    override def apply(index: Int): List[U] = new Views.TransformedSeriesView[V, U](df, transform, index, !transpose).toList
+    override def apply(index: Int): List[U] =
+      new Views.TransformedSeriesView[V, U](df, transform, index, !transpose)
+        .toList
 
     override def length: Int = if (transpose) df.length else df.size
 
@@ -254,21 +264,21 @@ object Views {
 
 //    override def size: Int = if (transpose) df.length else df.size
 
-    override def apply(index: Int): U ={
-    val value =
-      if (transpose) df.getFromIndex(index, this.index) else df.getFromIndex(this.index, index)
-    transform.apply(value.asInstanceOf[V])
-  }
+    override def apply(index: Int): U = {
+      val value =
+        if (transpose) df.getFromIndex(index, this.index)
+        else df.getFromIndex(this.index, index)
+      transform.apply(value.asInstanceOf[V])
+    }
 
-    override def length: Int =  if (transpose) df.length else df.size
-
+    override def length: Int = if (transpose) df.length else df.size
 
     val viewLength = if (transpose) df.length else df.size
 
     override def iterator: Iterator[U] = new Iterator[U] {
       private var currentIndex = 0
 
-      override def hasNext: Boolean = currentIndex <  viewLength
+      override def hasNext: Boolean = currentIndex < viewLength
 
       override def next(): U = {
         val result = apply(currentIndex)
@@ -279,7 +289,6 @@ object Views {
   }
 
   class FlatView[V](val df: DataFrame[V]) extends AbstractSeq[V] {
-
 
 //    override def get(index: Int): V = df
 //      .getFromIndex(index % df.length, index / df.length)
@@ -296,7 +305,7 @@ object Views {
     override def iterator: Iterator[V] = new Iterator[V] {
       private var currentIndex = 0
 
-      override def hasNext: Boolean = currentIndex <  viewLength
+      override def hasNext: Boolean = currentIndex < viewLength
 
       override def next(): V = {
         val result = apply(currentIndex)

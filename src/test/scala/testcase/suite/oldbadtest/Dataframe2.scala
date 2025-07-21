@@ -1,3 +1,5 @@
+package testcase.suite.oldbadtest
+
 //package torch
 //
 //import scala.collection.mutable

@@ -17,12 +17,18 @@
  */
 package torch.pandas.function
 
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 import org.apache.commons.math3.stat.descriptive.StorelessUnivariateStatistic
-import org.apache.commons.math3.stat.descriptive.rank.{Max, Min}
-import org.apache.commons.math3.stat.descriptive.summary.{Product, Sum}
+import org.apache.commons.math3.stat.descriptive.rank.Max
+import org.apache.commons.math3.stat.descriptive.rank.Min
+import org.apache.commons.math3.stat.descriptive.summary.Product
+import org.apache.commons.math3.stat.descriptive.summary.Sum
+
 import torch.pandas.DataFrame
 import torch.pandas.DataFrame.Function
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 /*
  * storch -- Data frames for Java
@@ -52,10 +58,12 @@ private class AbstractCumulativeFunction(
 ) extends CumulativeFunction[Number, Number] {
   reset()
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
   override def apply(value: Number): Number = {
     val numValue = value match
 //      case ex: Boolean => if ex then 1 else 0
-      case _ => if (value.isInstanceOf[Number]) then value.asInstanceOf[Number] else 0 // throw new IllegalArgumentException("value not a number: " + value)
+      case _ =>
+        if value.isInstanceOf[Number] then value.asInstanceOf[Number] else 0 // throw new IllegalArgumentException("value not a number: " + value)
     //          if (value.isInstanceOf[Boolean]) value = if (classOf[Boolean].cast(value)) 1
     //          else 0
     stat.increment(numValue.asInstanceOf[Number].doubleValue)

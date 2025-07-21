@@ -1,5 +1,3 @@
 package torch.pandas.component
 
-object HiveCompat {
-
-}
+object HiveCompat {}

@@ -19,7 +19,8 @@ package torch.pandas.operate
 
 import java.lang.Math.max
 import java.lang.Math.min
-
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 import scala.collection.mutable.*
 import scala.collection.mutable.LinkedHashMap
 import scala.collection.mutable.ListBuffer

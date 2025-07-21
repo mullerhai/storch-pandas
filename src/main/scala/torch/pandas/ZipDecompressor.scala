@@ -1,16 +1,24 @@
 package torch.pandas
 
-import java.io.{BufferedInputStream, BufferedOutputStream, File, FileInputStream, FileOutputStream}
-import java.util.zip.{ZipEntry, ZipInputStream}
-
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 object ZipDecompressor {
 
-  def decompressZip(zipFilePath: String, outputDirectory: String, readCache: Int = 100): Unit = {
- 
+  def decompressZip(
+      zipFilePath: String,
+      outputDirectory: String,
+      readCache: Int = 100,
+  ): Unit = {
+
     val outputDir = new File(outputDirectory)
-    if (!outputDir.exists()) {
-      outputDir.mkdirs()
-    }
+    if (!outputDir.exists()) outputDir.mkdirs()
     val fis = new FileInputStream(zipFilePath)
     val bis = new BufferedInputStream(fis)
     val zis = new ZipInputStream(bis)
@@ -18,9 +26,8 @@ object ZipDecompressor {
       var entry: ZipEntry = zis.getNextEntry()
       while (entry != null) {
         val entryFilePath = new File(outputDirectory, entry.getName)
-        if (entry.isDirectory) {
-          entryFilePath.mkdirs()
-        } else {
+        if (entry.isDirectory) entryFilePath.mkdirs()
+        else {
           entryFilePath.getParentFile().mkdirs()
           val fos = new FileOutputStream(entryFilePath)
           val bos = new BufferedOutputStream(fos)
@@ -40,10 +47,8 @@ object ZipDecompressor {
         entry = zis.getNextEntry()
       }
       println("ZIP decompress done")
-    } catch {
-      case e: Exception =>
-        e.printStackTrace()
-    } finally {
+    } catch { case e: Exception => e.printStackTrace() }
+    finally {
       zis.close()
       bis.close()
       fis.close()

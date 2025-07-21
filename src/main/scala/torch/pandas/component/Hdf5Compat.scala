@@ -1,16 +1,22 @@
 package torch
 package pandas.component
 
+import java.nio.file.Paths
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import scala.jdk.CollectionConverters._
+
+import org.apache.commons.lang3.ArrayUtils
+
 import io.jhdf.HdfFile
 import io.jhdf.api.Dataset
-import org.apache.commons.lang3.ArrayUtils
-import java.nio.file.Paths
-import scala.jdk.CollectionConverters._
 object Hdf5Compat {
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit =
     try {
-      val hdfFile = new HdfFile(Paths.get("D:\\data\\git\\testNumpy\\src\\main\\resources\\example.h5"))
+      val hdfFile = new HdfFile(
+        Paths.get("D:\\data\\git\\testNumpy\\src\\main\\resources\\example.h5"),
+      )
       try {
         val fileIter = hdfFile.iterator().asScala
         while (fileIter.hasNext) {
@@ -27,30 +33,33 @@ object Hdf5Compat {
         // data will be a java array of the dimensions of the HDF5 dataset
         val data = dataset.getData
         println(data)
-        println(ArrayUtils.toString(data)) //NOSONAR - sout in example
+        println(ArrayUtils.toString(data)) // NOSONAR - sout in example
       } finally if (hdfFile != null) hdfFile.close()
     }
-  }
 
-  def writeHdf5(outFile: String, datasetName:String, data:Array[AnyRef]): Unit = {
+  def writeHdf5(
+      outFile: String,
+      datasetName: String,
+      data: Array[AnyRef],
+  ): Unit =
     try {
       val hdfFile = HdfFile.write(Paths.get(outFile))
-      try {
-        hdfFile.putDataset(datasetName, data)
+      try hdfFile.putDataset(datasetName, data)
 //        hdfFile.putDataset("doubles", Array[Double](1.0, 2.0, 3.0, 4.0))
 //        val multiDimGroup = hdfFile.putGroup("multiDim")
 //        multiDimGroup.putDataset("2d-ints", Array[Array[Int]](Array(1, 2), Array(3, 4)))
 //        multiDimGroup.putDataset("3d-ints", Array[Array[Array[Int]]](Array(Array(1, 2), Array(3, 4)), Array(Array(5, 6), Array(7, 8))))
-      } finally if (hdfFile != null) hdfFile.close()
+      finally if (hdfFile != null) hdfFile.close()
     }
-  }
 
   def readHdf5(hdf5Path: String, datasetName: String): Array[AnyRef] = {
     val hdfFile = new HdfFile(Paths.get(hdf5Path))
     try {
       val dataset = hdfFile.getDatasetByPath(datasetName)
       // data will be a java array of the dimensions of the HDF5 dataset
-      println(s"dataset.getDataType ${dataset.getDataType} data dim ${dataset.getDimensions.mkString(",")} javaType ${dataset.getJavaType} size ${dataset.getSize}")
+      println(s"dataset.getDataType ${dataset.getDataType} data dim ${dataset
+          .getDimensions.mkString(",")} javaType ${dataset
+          .getJavaType} size ${dataset.getSize}")
       val data = dataset.getData
       var realData: Array[AnyRef] = null
       realData = data match {
@@ -67,7 +76,9 @@ object Hdf5Compat {
         case arr: Array[Array[Float]] => arr.map(_.map(_.toFloat))
         case arr: Array[Array[Double]] => arr.map(_.map(_.toDouble))
         case arr: Array[AnyRef] => arr
-        case _ => throw new RuntimeException(s"dataset $datasetName data type not support")
+        case _ => throw new RuntimeException(
+            s"dataset $datasetName data type not support",
+          )
       }
       println(ArrayUtils.toString(data))
       realData
@@ -95,7 +106,7 @@ object Hdf5Compat {
 //        case arr: Array[Array[Double]] => arr.map(_.map(_.toDouble))
 //        case arr: Array[AnyRef] => arr
 //        case _ => throw new RuntimeException(s"dataset $datasetName data type not support")
-//      
+//
 //      }
 //      data
 //    } finally if (hdfFile != null) hdfFile.close()

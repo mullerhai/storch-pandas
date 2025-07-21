@@ -1,5 +1,3 @@
 package torch.pandas.component
 
-object MilvusCompat {
-
-}
+object MilvusCompat {}

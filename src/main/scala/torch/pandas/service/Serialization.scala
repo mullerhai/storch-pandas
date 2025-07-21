@@ -17,25 +17,37 @@
  */
 package torch.pandas.service
 
-import org.apache.poi.hssf.usermodel.{HSSFDataFormat, HSSFWorkbook}
-import org.apache.poi.ss.usermodel.*
-import org.supercsv.cellprocessor.ift.CellProcessor
-import org.supercsv.cellprocessor.{ConvertNullTo, FmtDate}
-import org.supercsv.io.{CsvListReader, CsvListWriter}
-import org.supercsv.prefs.CsvPreference
-import torch.pandas.DataFrame
-import torch.pandas.DataFrame.NumberDefault
-
 import java.io.*
 import java.math.BigInteger
 import java.net.URL
-import java.sql.{PreparedStatement, ResultSet, SQLException}
-import java.text.{DateFormat, SimpleDateFormat}
-import java.util.{Calendar, Date}
+import java.sql.PreparedStatement
+import java.sql.ResultSet
+import java.sql.SQLException
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+
 import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
-import scala.util.control.Breaks.{break, breakable}
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import org.apache.poi.hssf.usermodel.HSSFDataFormat
+import org.apache.poi.hssf.usermodel.HSSFWorkbook
+import org.apache.poi.ss.usermodel.*
+import org.supercsv.cellprocessor.ConvertNullTo
+import org.supercsv.cellprocessor.FmtDate
+import org.supercsv.cellprocessor.ift.CellProcessor
+import org.supercsv.io.CsvListReader
+import org.supercsv.io.CsvListWriter
+import org.supercsv.prefs.CsvPreference
+
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.NumberDefault
 object Serialization {
   private val EMPTY_DF_STRING = "[empty data frame]"
   private val ELLIPSES = "..."
@@ -44,6 +56,8 @@ object Serialization {
   private val INDEX_KEY = new AnyRef
   private val MAX_COLUMN_WIDTH = 20
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  
   def toString(df: DataFrame[?], limit: Int): String = {
     val len = df.length
     if (len == 0) return EMPTY_DF_STRING
@@ -188,7 +202,8 @@ object Serialization {
     else new FileInputStream(file),
     ",",
     NumberDefault.LONG_DEFAULT,
-    null, limit =limit
+    null,
+    limit = limit,
   )
 
   @throws[IOException]
@@ -196,13 +211,14 @@ object Serialization {
       file: String,
       separator: String,
       numDefault: DataFrame.NumberDefault,
-      limit: Int
+      limit: Int,
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
     separator,
     numDefault,
-    null,limit = limit
+    null,
+    limit = limit,
   )
 
   @throws[IOException]
@@ -211,13 +227,14 @@ object Serialization {
       separator: String,
       numDefault: DataFrame.NumberDefault,
       naString: String,
-      limit: Int
+      limit: Int,
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
     separator,
     numDefault,
-    naString, limit = limit
+    naString,
+    limit = limit,
   )
 
   @throws[IOException]
@@ -227,7 +244,7 @@ object Serialization {
       numDefault: DataFrame.NumberDefault,
       naString: String,
       hasHeader: Boolean,
-      limit: Int
+      limit: Int,
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
@@ -235,11 +252,11 @@ object Serialization {
     numDefault,
     naString,
     hasHeader,
-    limit = limit
+    limit = limit,
   )
 
   @throws[IOException]
-  def readCsv(input: InputStream,limit: Int): DataFrame[AnyRef] =
+  def readCsv(input: InputStream, limit: Int): DataFrame[AnyRef] =
     readCsv(input, ",", NumberDefault.LONG_DEFAULT, null, limit = limit)
 
   @throws[IOException]
@@ -247,9 +264,10 @@ object Serialization {
       input: InputStream,
       separator: String,
       numDefault: DataFrame.NumberDefault,
-      naString: String, 
-      limit: Int
-  ): DataFrame[AnyRef] = readCsv(input, separator, numDefault, naString, true, limit = limit)
+      naString: String,
+      limit: Int,
+  ): DataFrame[AnyRef] =
+    readCsv(input, separator, numDefault, naString, true, limit = limit)
 
   def readCsvOld(
       input: InputStream,
@@ -309,11 +327,10 @@ object Serialization {
       }
       // Read remaining rows using a while loop
       var row: mutable.Buffer[AnyRef] = new mutable.ListBuffer[AnyRef]() // Use Java List for the row read by CsvListReader
-      while ({ row = reader.read(procs*).asScala; row != null }) { // Assign and check in the while condition
+      while ({ row = reader.read(procs*).asScala; row != null }) // Assign and check in the while condition
         // reader.read returns Java List<Object>, convert to Scala List[AnyRef] before appending
 //        println(s"row ${row.mkString(",")}")
         df.append(row.toSeq)
-      }
 
       // Call convert method on the DataFrame
       df.convert(numDefault, naString)
@@ -327,14 +344,23 @@ object Serialization {
             System.err.println(s"Error closing CsvListReader: ${e.getMessage}")
         }
 
-  def readCsv(input: InputStream, separator: String, numDefault: NumberDefault, naString: String, hasHeader: Boolean, limit: Int ): DataFrame[AnyRef] = {
+  def readCsv(
+      input: InputStream,
+      separator: String,
+      numDefault: NumberDefault,
+      naString: String,
+      hasHeader: Boolean,
+      limit: Int,
+  ): DataFrame[AnyRef] = {
     val csvPreference = separator match {
       case "\\t" => CsvPreference.TAB_PREFERENCE
       case "," => CsvPreference.STANDARD_PREFERENCE
       case ";" => CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE
       case "|" => new CsvPreference.Builder('"', '|', "\n").build()
 //      case "::" => new CsvPreference.Builder('"', "::", "\r\n").build()
-      case _ => throw new IllegalArgumentException(s"Separator: $separator is not currently supported")
+      case _ => throw new IllegalArgumentException(
+          s"Separator: $separator is not currently supported",
+        )
     }
     var index = 0
     val mainStartTime = System.nanoTime()
@@ -343,7 +369,7 @@ object Serialization {
     var endTime = System.nanoTime()
     var duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
     var zduration = (endTime - preTmpEndTime) / 1e9
-    println(s"Serialization csv CsvListReader time cost all： ${duration} s ,this duration time cost ${zduration} s")
+    println(s"Serialization csv CsvListReader time cost all： $duration s ,this duration time cost $zduration s")
     preTmpEndTime = endTime
     try {
       var header: List[String] = null
@@ -367,24 +393,24 @@ object Serialization {
         endTime = System.nanoTime()
         duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
         zduration = (endTime - preTmpEndTime) / 1e9
-        println(s"Serialization csv CsvListReader time cost all： ${duration} s ,this duration time cost ${zduration} s")
+        println(s"Serialization csv CsvListReader time cost all： $duration s ,this duration time cost $zduration s")
         preTmpEndTime = endTime
       }
 
       println(s"Serialization row begin read")
-      breakable{
-        var row = reader.read(procs *)
+      breakable {
+        var row = reader.read(procs*)
         while (row != null) {
           if (index >= limit && limit != -1) break
-          if(index<= limit || limit == -1){
+          if (index <= limit || limit == -1) {
             df.append(row.asScala.toList)
-            row = reader.read(procs *)
+            row = reader.read(procs*)
             index += 1
             if (index % 10000 == 0) {
               endTime = System.nanoTime() // 记录结束时间
               duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
               zduration = (endTime - preTmpEndTime) / 1e9
-              println(s"Serialization csv read progress $index time cost all： ${duration} s ,this duration time cost ${zduration} s")
+              println(s"Serialization csv read progress $index time cost all： $duration s ,this duration time cost $zduration s")
               preTmpEndTime = endTime
             }
           }
@@ -403,26 +429,34 @@ object Serialization {
 //          preTmpEndTime = endTime
 //        }
 //      }
-      println(s"Serialization csv read finish generate df finish, begin df convert")
+      println(
+        s"Serialization csv read finish generate df finish, begin df convert",
+      )
       val cdf = df.convert(numDefault, naString)
       endTime = System.nanoTime() // 记录结束时间
       duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
       zduration = (endTime - preTmpEndTime) / 1e9
-      println(s"Serialization csv read progress $index time cost all： ${duration} s ,this duration time cost ${zduration} s")
+      println(s"Serialization csv read progress $index time cost all： $duration s ,this duration time cost $zduration s")
 //      preTmpEndTime = endTime
       cdf
 
-    } finally {
-      reader.close()
-    }
+    } finally reader.close()
   }
-  def readCsvLittle(input: InputStream, separator: String, numDefault: NumberDefault, naString: String, hasHeader: Boolean): DataFrame[AnyRef] =
+  def readCsvLittle(
+      input: InputStream,
+      separator: String,
+      numDefault: NumberDefault,
+      naString: String,
+      hasHeader: Boolean,
+  ): DataFrame[AnyRef] =
     val csvPreference = separator match
       case "\\t" => CsvPreference.TAB_PREFERENCE
       case "," => CsvPreference.STANDARD_PREFERENCE
       case ";" => CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE
       case "|" => new CsvPreference.Builder('"', '|', "\n").build()
-      case _ => throw new IllegalArgumentException(s"Separator: $separator is not currently supported")
+      case _ => throw new IllegalArgumentException(
+          s"Separator: $separator is not currently supported",
+        )
 
     val reader = new CsvListReader(new InputStreamReader(input), csvPreference)
     try
@@ -451,8 +485,7 @@ object Serialization {
         row = reader.read(procs*)
       rowBuffer.toSeq.map(slice => df.append(slice))
       df.convert(numDefault, naString)
-    finally
-      reader.close()
+    finally reader.close()
   // @throws[IOException]
 //  def readCsv(input: InputStream, separator: String, numDefault: DataFrame.NumberDefault, naString: String, hasHeader: Boolean): DataFrame[AnyRef] = {
 //    var csvPreference: CsvPreference = null
@@ -507,33 +540,30 @@ object Serialization {
 
   @throws[IOException]
   def writeCsv[V](df: DataFrame[V], output: OutputStream): Unit = {
-    val writer = new CsvListWriter(new OutputStreamWriter(output), CsvPreference.STANDARD_PREFERENCE)
+    val writer = new CsvListWriter(
+      new OutputStreamWriter(output),
+      CsvPreference.STANDARD_PREFERENCE,
+    )
     try {
       // 生成表头
       val header = new Array[String](df.size)
-      val it = df.getColumns.iterator //.asScala
-      for (c <- 0 until df.size) {
+      val it = df.getColumns.iterator // .asScala
+      for (c <- 0 until df.size)
         header(c) = it.nextOption().map(_.toString).getOrElse(c.toString)
-      }
       writer.writeHeader(header: _*)
       // 生成单元格处理器
-      val types = df.types //().asScala.toList
+      val types = df.types // ().asScala.toList
       val procs = new Array[CellProcessor](df.size)
       for (c <- 0 until df.size) {
         val cls = types(c)
-        procs(c) = if (classOf[Date].isAssignableFrom(cls)) {
-          new ConvertNullTo("", new FmtDate("yyyy-MM-dd'T'HH:mm:ssXXX"))
-        } else {
-          new ConvertNullTo("")
-        }
+        procs(c) =
+          if (classOf[Date].isAssignableFrom(cls))
+            new ConvertNullTo("", new FmtDate("yyyy-MM-dd'T'HH:mm:ssXXX"))
+          else new ConvertNullTo("")
       }
       // 写入数据行
-      for (row <- df) {
-        writer.write(row.asJava, procs)
-      }
-    } finally {
-      writer.close()
-    }
+      for (row <- df) writer.write(row.asJava, procs)
+    } finally writer.close()
   }
   @throws[IOException]
   def writeCsvOldBug[V](df: DataFrame[V], output: OutputStream): Unit =

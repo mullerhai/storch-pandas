@@ -18,14 +18,18 @@
 package torch.pandas.operate.adapter
 
 import java.io.IOException
-import java.lang.reflect.Method
-import java.util
+//import java.lang.reflect.Method
+//import java.util
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 import scala.collection.Set as KeySet
 import scala.collection.mutable
 import scala.collection.mutable.LinkedHashMap
 import scala.collection.mutable.LinkedHashSet
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
+import scala.language.postfixOps
+
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Function
 import org.mozilla.javascript.NativeArray
@@ -33,16 +37,15 @@ import org.mozilla.javascript.NativeJavaObject
 import org.mozilla.javascript.ScriptRuntime
 import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.ScriptableObject
+
+import torch.pandas.DataFrame
 import torch.pandas.DataFrame.Aggregate
 import torch.pandas.DataFrame.JoinType
 import torch.pandas.DataFrame.KeyFunction
 import torch.pandas.DataFrame.PlotType
 import torch.pandas.DataFrame.Predicate
 import torch.pandas.DataFrame.RowFunction
-import torch.pandas.DataFrame
 import torch.pandas.operate.Grouping
-
-import scala.language.postfixOps
 /*
  * there are basically two options for assisting in method resolution
  * from javascript:
@@ -64,7 +67,7 @@ import scala.language.postfixOps
 @SerialVersionUID(1L)
 object DataFrameAdapter {
   private val EMPTY_DF = new DataFrame[AnyRef]
-
+  private val logger = LoggerFactory.getLogger(this.getClass)
   def jsConstructor(
       ctx: Context,
       args: Array[AnyRef],
@@ -619,7 +622,7 @@ class DataFrameAdapter extends ScriptableObject {
 
   def jsFunction_col(column: Int): Seq[AnyRef] = df.colInt(column)
 
-  def jsFunction_row(row: Int): Seq[AnyRef] = df.row_index(row).toSeq //asScala.toSeq
+  def jsFunction_row(row: Int): Seq[AnyRef] = df.row_index(row).toSeq // asScala.toSeq
 
   def jsFunction_select(predicate: Function): DataFrameAdapter = {
     @SuppressWarnings(Array("unchecked"))

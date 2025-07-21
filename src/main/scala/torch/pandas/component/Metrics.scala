@@ -17,20 +17,28 @@
  */
 package torch.pandas.component
 
-import com.codahale.metrics.*
-import com.codahale.metrics.annotation.Timed
-import org.aspectj.lang.{ProceedingJoinPoint, Signature}
-import org.aspectj.lang.annotation.{Around, Aspect}
-import org.aspectj.lang.reflect.{ConstructorSignature, FieldSignature, MethodSignature}
 import java.io.File
 import java.lang.annotation.Annotation
 import java.lang.reflect.Constructor
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 import scala.collection.mutable.*
+
+import org.aspectj.lang.ProceedingJoinPoint
+import org.aspectj.lang.Signature
+import org.aspectj.lang.annotation.Around
+import org.aspectj.lang.annotation.Aspect
+import org.aspectj.lang.reflect.ConstructorSignature
+import org.aspectj.lang.reflect.FieldSignature
+import org.aspectj.lang.reflect.MethodSignature
+
+import com.codahale.metrics.*
+import com.codahale.metrics.annotation.Timed
 
 @Aspect
 object Metrics {
   private val registry = SharedMetricRegistries.getOrCreate("storch")
-
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private def getAnnotation(
       signature: Signature,
       annotationClass: Class[? <: Annotation],

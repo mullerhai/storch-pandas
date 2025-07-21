@@ -1,16 +1,19 @@
 package torch.pandas.component
 
 import scala.collection.mutable
-import torch.pickle.Unpickler
-import torch.pickle.objects.MulitNumpyNdArray
-import torch.pandas.DataFrame
-
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
+import torch.pandas.DataFrame
+import torch.pickle.Unpickler
+import torch.pickle.objects.MulitNumpyNdArray
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 object PickleCompat {
 
-  def readPickleForCaseClassSeq[T:ClassTag](picklePath: String): Seq[T] = {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+  
+  def readPickleForCaseClassSeq[T: ClassTag](picklePath: String): Seq[T] = {
     val unpickler = new Unpickler()
     val df = unpickler.load(picklePath)
     df.asInstanceOf[ListBuffer[T]].toSeq

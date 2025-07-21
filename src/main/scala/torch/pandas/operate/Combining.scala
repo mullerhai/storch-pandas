@@ -18,13 +18,18 @@ package torch.pandas.operate
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import torch.pandas.DataFrame
-import torch.pandas.DataFrame.{JoinType, KeyFunction, compare}
-
 import scala.collection.mutable
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
-import scala.util.control.Breaks.{break, breakable}
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
+import torch.pandas.DataFrame
+import torch.pandas.DataFrame.JoinType
+import torch.pandas.DataFrame.KeyFunction
+import torch.pandas.DataFrame.compare
 
 // Import assumed existing type
 // Import Java reflection for Array.newInstance if needed (though not in this specific class)
@@ -32,6 +37,7 @@ import scala.util.control.Breaks.{break, breakable}
 
 object Combining:
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
   /** Performs a join operation between two DataFrames.
     *
     * @param left
@@ -188,7 +194,7 @@ object Combining:
 
           // Add the row from the secondary map
           tmp.addAll(secondaryRow)
-          println(s"outer key ${key} value-> ${tmp.mkString(",")} ")
+          println(s"outer key $key value-> ${tmp.mkString(",")} ")
           // Append the combined row to the result DataFrame
           df.append(key, tmp.toList) // Convert Scala ListBuffer to Scala List, then to Java List
         }
@@ -260,12 +266,7 @@ object Combining:
     val columnsArray: Array[AnyRef] = intersection.toArray
 //    println(s"try to merge ...... join the all column -> ${columnsArray.mkString(",")} ")
     // Reindex both DataFrames to keep only the intersection columns and perform the join
-    join(
-      left.reindex(columnsArray),
-      right.reindex(columnsArray),
-      how,
-      null,
-    )
+    join(left.reindex(columnsArray), right.reindex(columnsArray), how, null)
   }
 
   /** Updates a destination DataFrame with values from other DataFrames.
@@ -351,10 +352,9 @@ object Combining:
     for (df <- dfs) {
 //      println("for 1 out df.getIndex.size: " + df.getIndex.size)
       totalRows += df.length // Assuming length() is row count
-      for (c <- df.getColumns) { // Iterate through Java List of columns
+      for (c <- df.getColumns) // Iterate through Java List of columns
 //        println("for 1 inner c: " + c)
         columns.add(c)
-      }
     }
 
     // Convert the unique column names Set to a Scala List
@@ -362,7 +362,7 @@ object Combining:
 
     // Create the combined DataFrame with the determined columns and total rows
     // Assuming DataFrame constructor takes Java List of columns and reshape takes rows, cols
-    val comm = new DataFrame[V](newcols.map(_.toString) *)
+    val comm = new DataFrame[V](newcols.map(_.toString)*)
     val combined = comm.reshape(totalRows, newcols.size)
 
     // Populate the combined DataFrame
