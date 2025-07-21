@@ -63,6 +63,19 @@ class BlockManager[V] private (
     }
   }
 
+  /**
+   * 获取指定行号索引对应的一行数据
+   *
+   * @param row 行号索引，从 0 开始
+   * @return 包含该行所有列数据的序列，如果行号超出范围则返回空序列
+   */
+  def getRow(row: Int): Seq[V] = {
+    if (row < 0 || row >= length()) {
+      Seq.empty[V]
+    } else {
+      blocks.map(_(row)).toSeq
+    }
+  }
 
   def get(col: Int, row: Int): V = blocks(col)(row)
 

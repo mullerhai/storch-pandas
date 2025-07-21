@@ -31,7 +31,7 @@ ThisBuild / developers := List(
   // your GitHub handle and name
   tlGitHubDev("mullerhai", "mullerhai")
 )
-ThisBuild / version := "0.1.4"
+ThisBuild / version := "0.1.5"
 
 ThisBuild / scalaVersion := "3.6.4"
 ThisBuild / tlSonatypeUseLegacyHost := false
@@ -91,11 +91,11 @@ libraryDependencies += "com.lihaoyi" %% "os-lib" % "0.11.5-M10"
 // https://mvnrepository.com/artifact/com.lihaoyi/ujson
 libraryDependencies += "com.lihaoyi" %% "ujson" % "4.2.1"
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.18.1" % Test
-libraryDependencies += "io.github.mullerhai" % "storch-pickle_3" % "0.1.3"
-libraryDependencies += "io.github.mullerhai" % "storch-numpy_3" % "0.1.5"
-libraryDependencies += "io.github.mullerhai" % "storch-polars_3" % "0.1.4"
-//libraryDependencies += "io.github.mullerhai" % "storch-safe-tensor_3" % "0.1.1"
-libraryDependencies += "io.github.mullerhai" % "storch-scikit-learn_3" % "0.1.1" exclude("org.scala-lang.modules","scala-collection-compat_2.13") exclude("org.typelevel","algebra_2.13")exclude("org.typelevel","cats-kernel_2.13")
+libraryDependencies += "io.github.mullerhai" % "storch-pickle_3" % "0.1.4"
+libraryDependencies += "io.github.mullerhai" % "storch-numpy_3" % "0.1.6"
+libraryDependencies += "io.github.mullerhai" % "storch-polars_3" % "0.1.5"
+libraryDependencies += "io.github.mullerhai" % "storch-safe-tensor_3" % "0.1.1"
+//libraryDependencies += "io.github.mullerhai" % "storch-scikit-learn_3" % "0.1.2" % Test exclude("org.scala-lang.modules","scala-collection-compat_2.13") exclude("org.typelevel","algebra_2.13")exclude("org.typelevel","cats-kernel_2.13")
 //libraryDependencies += "io.circe" %% "circe-core" % circeVersion,
 // https://mvnrepository.com/artifact/com.google.doclava/doclava
 libraryDependencies += "com.google.doclava" % "doclava" % "1.0.6"
@@ -108,7 +108,7 @@ libraryDependencies += "org.jline" % "jline" % "3.30.1"
 // https://mvnrepository.com/artifact/org.aspectj/aspectjrt
 libraryDependencies += "org.aspectj" % "aspectjrt" % "1.8.2" // % "runtime"
 // https://mvnrepository.com/artifact/org.knowm.xchart/xchart
-//libraryDependencies += "org.knowm.xchart" % "xchart" % "3.8.8"
+libraryDependencies += "org.knowm.xchart" % "xchart" % "3.8.8"
 // https://mvnrepository.com/artifact/com.xeiam.xchart/xchart
 libraryDependencies += "com.xeiam.xchart" % "xchart" % "2.5.1"
 // https://mvnrepository.com/artifact/org.apache.poi/poi
@@ -118,6 +118,7 @@ libraryDependencies += "org.apache.poi" % "poi-ooxml" % "5.4.1"
 libraryDependencies += "io.jhdf" % "jhdf" % "0.9.4"
 // https://mvnrepository.com/artifact/org.apache.commons/commons-math4-core
 libraryDependencies += "org.apache.commons" % "commons-math4-core" % "4.0-beta1"
+libraryDependencies += "org.scalanlp" %% "breeze" % "2.1.0"
 // https://mvnrepository.com/artifact/org.apache.commons/commons-math3
 //libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1"
 // https://mvnrepository.com/artifact/net.sf.supercsv/super-csv

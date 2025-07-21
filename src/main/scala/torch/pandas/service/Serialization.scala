@@ -29,12 +29,13 @@ import torch.pandas.DataFrame.NumberDefault
 import java.io.*
 import java.math.BigInteger
 import java.net.URL
-import java.sql.{ResultSet, SQLException, PreparedStatement}
+import java.sql.{PreparedStatement, ResultSet, SQLException}
 import java.text.{DateFormat, SimpleDateFormat}
 import java.util.{Calendar, Date}
 import scala.collection.mutable
 import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 import scala.jdk.CollectionConverters.*
+import scala.util.control.Breaks.{break, breakable}
 object Serialization {
   private val EMPTY_DF_STRING = "[empty data frame]"
   private val ELLIPSES = "..."
@@ -182,12 +183,12 @@ object Serialization {
   }
 
   @throws[IOException]
-  def readCsv(file: String): DataFrame[AnyRef] = readCsv(
+  def readCsv(file: String, limit: Int = -1): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
     ",",
     NumberDefault.LONG_DEFAULT,
-    null,
+    null, limit =limit
   )
 
   @throws[IOException]
@@ -195,12 +196,13 @@ object Serialization {
       file: String,
       separator: String,
       numDefault: DataFrame.NumberDefault,
+      limit: Int
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
     separator,
     numDefault,
-    null,
+    null,limit = limit
   )
 
   @throws[IOException]
@@ -209,12 +211,13 @@ object Serialization {
       separator: String,
       numDefault: DataFrame.NumberDefault,
       naString: String,
+      limit: Int
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
     separator,
     numDefault,
-    naString,
+    naString, limit = limit
   )
 
   @throws[IOException]
@@ -224,6 +227,7 @@ object Serialization {
       numDefault: DataFrame.NumberDefault,
       naString: String,
       hasHeader: Boolean,
+      limit: Int
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
@@ -231,19 +235,21 @@ object Serialization {
     numDefault,
     naString,
     hasHeader,
+    limit = limit
   )
 
   @throws[IOException]
-  def readCsv(input: InputStream): DataFrame[AnyRef] =
-    readCsv(input, ",", NumberDefault.LONG_DEFAULT, null)
+  def readCsv(input: InputStream,limit: Int): DataFrame[AnyRef] =
+    readCsv(input, ",", NumberDefault.LONG_DEFAULT, null, limit = limit)
 
   @throws[IOException]
   def readCsv(
       input: InputStream,
       separator: String,
       numDefault: DataFrame.NumberDefault,
-      naString: String,
-  ): DataFrame[AnyRef] = readCsv(input, separator, numDefault, naString, true)
+      naString: String, 
+      limit: Int
+  ): DataFrame[AnyRef] = readCsv(input, separator, numDefault, naString, true, limit = limit)
 
   def readCsvOld(
       input: InputStream,
@@ -321,7 +327,7 @@ object Serialization {
             System.err.println(s"Error closing CsvListReader: ${e.getMessage}")
         }
 
-  def readCsv(input: InputStream, separator: String, numDefault: NumberDefault, naString: String, hasHeader: Boolean): DataFrame[AnyRef] = {
+  def readCsv(input: InputStream, separator: String, numDefault: NumberDefault, naString: String, hasHeader: Boolean, limit: Int ): DataFrame[AnyRef] = {
     val csvPreference = separator match {
       case "\\t" => CsvPreference.TAB_PREFERENCE
       case "," => CsvPreference.STANDARD_PREFERENCE
@@ -366,19 +372,37 @@ object Serialization {
       }
 
       println(s"Serialization row begin read")
-      var row = reader.read(procs*)
-      while (row != null) {
-        df.append(row.asScala.toList)
-        row = reader.read(procs*)
-        index += 1
-        if (index % 10000 == 0) {
-          endTime = System.nanoTime() // 记录结束时间
-          duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
-          zduration = (endTime - preTmpEndTime) / 1e9
-          println(s"Serialization csv read progress $index time cost all： ${duration} s ,this duration time cost ${zduration} s")
-          preTmpEndTime = endTime
+      breakable{
+        var row = reader.read(procs *)
+        while (row != null) {
+          if (index >= limit && limit != -1) break
+          if(index<= limit || limit == -1){
+            df.append(row.asScala.toList)
+            row = reader.read(procs *)
+            index += 1
+            if (index % 10000 == 0) {
+              endTime = System.nanoTime() // 记录结束时间
+              duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+              zduration = (endTime - preTmpEndTime) / 1e9
+              println(s"Serialization csv read progress $index time cost all： ${duration} s ,this duration time cost ${zduration} s")
+              preTmpEndTime = endTime
+            }
+          }
         }
       }
+//      var row = reader.read(procs*)
+//      while (row != null) {
+//        df.append(row.asScala.toList)
+//        row = reader.read(procs*)
+//        index += 1
+//        if (index % 10000 == 0) {
+//          endTime = System.nanoTime() // 记录结束时间
+//          duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+//          zduration = (endTime - preTmpEndTime) / 1e9
+//          println(s"Serialization csv read progress $index time cost all： ${duration} s ,this duration time cost ${zduration} s")
+//          preTmpEndTime = endTime
+//        }
+//      }
       println(s"Serialization csv read finish generate df finish, begin df convert")
       val cdf = df.convert(numDefault, naString)
       endTime = System.nanoTime() // 记录结束时间

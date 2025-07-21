@@ -1,5 +1,6 @@
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import torch.numpy.enums.DType.Int64
 import torch.pandas.DataFrame.Axis.{COLUMNS, ROWS}
 import torch.pandas.DataFrame.{JoinType, PlotType}
 import torch.pandas.DataFrame.PlotType.{AREA, BAR, GRID, GRID_WITH_TREND, LINE, LINE_AND_POINTS, SCATTER, SCATTER_WITH_TREND}
@@ -94,9 +95,108 @@ def readxlsx(): Unit = {
     df.convert.show()
 
 }
-//@main
+
+@main
 def main(): Unit = {
-//    readxlsx()
+//    val npFile = "D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_float32_array.npy"
+//    //    val npFile ="D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_bool_array.npy"
+//    val df2 = DataFrame.fromNumpyNpyFile[Float](npFile)
+//    println(s"df2 column size : ${df2.getColumns.size} ,col ->" + df2.getColumns.mkString(","))
+//    df2.show()
+//    println(df2.values[Float].printArray())
+
+    val testPath = "D:\\data\\git\\testNumpy\\src\\main\\resources\\avazu\\test.csv"
+    //    val dff = readCSV
+    val df2 = DataFrame.readCSV(testPath, 50)
+    val df = DataFrame.readCsv(testPath,2000000000)
+    println(s"df column size : ${df.getColumns.size} ,col ->" + df.getColumns.mkString(","))
+    val selectColz = Array("C15", "C14", "C17", "C16", "C19", "C18", "click", "device_ip", "site_id", "app_category")
+    val cdf = df.columnSelect(selectColz)
+
+    val numCols = Array("C21", "site_domain", "device_model", "C18", "site_category")
+    println(s"ccdf column size : ${cdf.getColumns.size} ,col ->" + cdf.getColumns.mkString(","))
+//    cdf.show()
+//    df.show()
+    df2.columnSelect(numCols).cast(classOf[Double]).numeric
+    df.numeric.cast(classOf[Double]).values[Double]().printArray()
+    df2.columnSelect(numCols).cast(classOf[Double]).values[Double]().printArray()
+    df2.numeric.cast(classOf[Double]).values[Double]().printArray()
+    println(df.numeric.getColumns.mkString(","))
+//    cdf.numeric.values[Long].reshape(200,4).printArray() //.show()
+//
+//    val npArr:NDArray[?] =df.numeric.values[Long].reshape(13,20).asDType(Int64)
+//    val na = npArr.transpose          //TorchNumpy.transpose[Long,Long](npArr)
+//    npArr.printArray()
+//    df.nonnumeric.show()
+
+    //    val dataSet = df.train_test_split("C21", 0.33)
+    //    val (tf, ef, tl, el) = df.train_test_split("C21", 0.33)
+    //    val selectCols = Array("device_model", "banner_pos", "app_domain", "device_type")
+    //    df.columnSelect(selectCols).show()
+    //    tf.show()
+    //    df.indexSelect(0,10).show()
+    //    df.indexSelect(10,15).show()
+//    val indexSeq = Seq(10, 11, 12, 13, 14, 15)
+//    val selectIndexNums = indexSeq.map(indexName => df.index.getInt(indexName))
+//    val selectRowSeq = df.iterrows.zipWithIndex.filter(rowIndex => selectIndexNums.contains(rowIndex._2)).map(_._1).toList
+//    val selectDF = new DataFrame(selectIndexNums.map(_.asInstanceOf[AnyRef]), df.getColumns, selectRowSeq.transpose)
+//    println(selectRowSeq.size)
+//    selectDF.show()
+//    df.indexSelect(indexSeq).show()
+    //    df.indexSelect(0,35).show()
+
+}
+
+@main
+def multiKeys(): Unit = {
+    val cols: Seq[String] = Seq("category", "name", "value", "version")
+    val rows: Seq[String] = Seq("row1", "row2", "row3", "row4", "row5", "row6")
+    val col1Data = Seq(true, false, false, true, true, false)
+    val col2Data = Seq(false, false, false, true, true, false)
+    val col3Data = Seq(false, false, true, true, false, true)
+    val col4Data = Seq(false, false, false, true, true, true)
+    val data = List(col1Data, col2Data, col3Data, col4Data)
+    val df = new DataFrame[Boolean](rows, cols.asInstanceOf[Seq[AnyRef]], data)
+    df.show()
+    println(df.cast(classOf[Boolean]).values[Boolean](true).printArray())
+}
+@main
+def mainssz(): Unit = {
+    val npFile2 ="D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_bool_array.npy"
+    val df22 = DataFrame.fromNumpyNpyFile[Boolean](npFile2)
+    df22.show()
+    val df = df22.cast(classOf[Boolean])
+    println(df.values[Boolean](true).printArray())
+
+
+}
+@main
+def mainsz(): Unit = {
+//     val npFile = "D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_float64_array.npy"
+//    val npFile = "D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_float32_array.npy"
+//    val df2 = DataFrame.fromNumpyNpyFile[Float](npFile)
+//    df2.show()
+//    println(df2.values[Double]().printArray())
+//    val cols: Seq[String] = Seq("category", "name", "value", "version")
+//    val rows: Seq[String] = Seq("row1", "row2", "row3", "row4", "row5", "row6")
+//    val col4Data = Seq("test", "release", "alpha", "beta", "gama", "peter")
+//    val col5Data = Seq("one", "two", "three", "four", "five", "six")
+    //  val col6Data = Seq(Float.NaN,Float.NaN,Float.NaN,Float.NaN,Float.NaN,Float.NaN)// Float.NaN, 48, 52, 67)
+//    val col1Data = Seq(true, false, false, true, true, false)
+//    val col2Data = Seq(false,false, false, true, true, false)
+//    val col3Data = Seq(false, false, true, true, false,true)
+//    val col4Data = Seq(false, false, false,true, true, true)
+//    val data = List(col1Data, col2Data, col3Data, col4Data)
+//    val df = new DataFrame[Any](rows, cols.asInstanceOf[Seq[AnyRef]], data)
+////    df2.show()
+//    println(df.values[Boolean]().printArray())
+
+//    val npFile2 ="D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_bool_array.npy"
+//    val df22 = DataFrame.fromNumpyNpyFile[Boolean](npFile2)
+//    df22.show()
+//    println(df22.cast(classOf[Boolean]).values[Boolean](true).printArray())
+
+    //    readxlsx()
 //    readxls()
 
 //    val cols: Seq[String] = Seq("category", "namenick", "value", "version", "age", "score")
@@ -160,7 +260,7 @@ def main(): Unit = {
 //    dff3.show()
 }
 
-@main
+//@main
 def mains(): Unit =
 //    readNumpy()
   // TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
@@ -186,6 +286,16 @@ def mains(): Unit =
     val colz = df.columns
     val values = df.data
     val gp = df.groups
+    df.show()
+//    df.plot(LINE)
+//    df.plot(SCATTER)
+//    df.plot(AREA)
+//    df.plot(LINE_AND_POINTS)
+//    df.plot(GRID)
+//    df.plot(SCATTER_WITH_TREND)
+//    df.plot(GRID_WITH_TREND)
+//    df.plot(BAR) //have bug
+//    df.plot(PlotType.LINE)
     val row6 = Seq(10, 25, 32,45,12,42)//"seven")
     df.append("row61", row6)
 //    df.writeCsv("recordks.csv")
@@ -212,10 +322,10 @@ def mains(): Unit =
     println(df.data)
     println(df.groups)
     println(s"dfss 3333333")
-    val ff = df.dropna(COLUMNS)
-    val ff3 = df.dropna(ROWS)
-    //    println(ff.show())
-    ff3.fillna(100)//.show()
+//    val ff = df.dropna(COLUMNS)
+//    val ff3 = df.dropna(ROWS)
+//    //    println(ff.show())
+//    ff3.fillna(100)//.show()
     df.show()
     df.kurt
     println("try to dropna....")
@@ -263,17 +373,8 @@ def mains(): Unit =
 
 
 
-//    println(df.describe)
-//    df.show()
-    df.plot(LINE)
-    df.plot(SCATTER)
-    df.plot(AREA)
-    df.plot(LINE_AND_POINTS)
-    df.plot(GRID)
-    df.plot(SCATTER_WITH_TREND)
-    df.plot(GRID_WITH_TREND)
-    df.plot(BAR) //have bug
-    df.plot(PlotType.LINE)
+    println(df.describe)
+
 
 
 //    val df3 = df.concat(df) //merge(df2, JoinType.LEFT)

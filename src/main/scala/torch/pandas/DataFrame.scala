@@ -17,6 +17,7 @@
  */
 package torch.pandas
 
+import torch.numpy.enums.DType.Float32
 import torch.pandas.DataFrame
 import torch.numpy.extern.NpyFile
 import torch.numpy.serve.Numpy
@@ -114,7 +115,7 @@ object DataFrame {
     if transpose then return df.transpose else return df
   }
 
-  def toNumpyNDArray[V](df: DataFrame[V],fillValue : Double = Double.NaN): NDArray[V] = {
+  def toNumpyNDArray[V: ClassTag](df: DataFrame[V],fillValue : Double = Double.NaN): NDArray[V] = {
     val data = df.toModelMatrixDataFrame.toModelMatrix(fillValue) //.toModelMatrix()
     //    val rows = data.size
     //    val cols = data.head.size
@@ -132,12 +133,12 @@ object DataFrame {
     TorchNumpy.saveNpyFile[V](file,array)
   }
 
-  def fromNumpyNpyFile[V](file: String): DataFrame[V] = {
+  def fromNumpyNpyFile[V:ClassTag](file: String): DataFrame[V] = {
     val array: NDArray[V] = TorchNumpy.loadNDArray(file)
     fromNumpyNDArray(array)
   }
 
-  def readNumpyNpyFile[V](file: String): DataFrame[V] = fromNumpyNpyFile(file)
+  def readNumpyNpyFile[V: ClassTag](file: String): DataFrame[V] = fromNumpyNpyFile(file)
 
   def readNumpyNpzFile[V: ClassTag](file: String): Seq[DataFrame[?]] = fromNumpyNpzFile(file)
 
@@ -160,6 +161,43 @@ object DataFrame {
   def toNumpyCSVTextFile[V:ClassTag](df: DataFrame[V], file: String, is2dim: Boolean = false, rowFirst:Boolean = true): Unit = {
     val array: NDArray[V] = toNumpyNDArray(df)
     TorchNumpy.saveNDArrayToCSV(array, file, is2dim, rowFirst)
+  }
+
+  /**
+   * 将两个 DataFrame 分割为训练集和测试集，分别返回特征和标签的训练集、测试集。
+   *
+   * @param featureDf   包含所有特征列的 DataFrame
+   * @param labelDf     仅包含标签列的 DataFrame
+   * @param testSize    测试集所占比例，范围在 0 到 1 之间
+   * @param randomState 随机种子，用于复现分割结果
+   * @tparam V DataFrame 中值的类型
+   * @return 包含训练集特征、测试集特征、训练集标签、测试集标签的四元组
+   */
+  def train_test_split[V](
+                           featureDf: DataFrame[V],
+                           labelDf: DataFrame[V],
+                           testSize: Double = 0.2,
+                           randomState: Int = 42
+                         ): (DataFrame[V], DataFrame[V], DataFrame[V], DataFrame[V]) = {
+    require(testSize > 0 && testSize < 1, "test dataset ratio must set  0 ~ 1 ")
+    require(featureDf.length == labelDf.length, "featureDf and labelDf must have the same number of rows")
+    // 设置随机种子
+    scala.util.Random.setSeed(randomState)
+    // 打乱索引
+    val shuffledIndices = scala.util.Random.shuffle(0 until featureDf.length)
+    // 计算分割点
+    val splitIndex = (featureDf.length * (1 - testSize)).toInt
+    // 分割索引
+    val trainIndices = shuffledIndices.take(splitIndex)
+    val testIndices = shuffledIndices.drop(splitIndex)
+
+    // 提取训练集和测试集的特征和标签
+    val X_train = featureDf.filterRows(trainIndices)
+    val X_test = featureDf.filterRows(testIndices)
+    val y_train = labelDf.filterRows(trainIndices)
+    val y_test = labelDf.filterRows(testIndices)
+
+    (X_train, X_test, y_train, y_test)
   }
   /** *
    * 将case class转换为DataFrame
@@ -259,8 +297,8 @@ object DataFrame {
 //
 //  /** Reads a LivSVM file. */
 //  def readLibsvm(file: Path): SparseDataset[Integer] = Read.libsvm(file)
-//  
-//  
+//
+//
 
   def compare[V](df1: DataFrame[V], df2: DataFrame[V]): DataFrame[String] =
     Comparison.compare(df1, df2)
@@ -276,7 +314,7 @@ object DataFrame {
     *   if an error reading the file occurs
     */
   @throws[IOException]
-  def readCsv(file: String): DataFrame[AnyRef] = Serialization.readCsv(file)
+  def readCsv(file: String, limit: Int = -1): DataFrame[AnyRef] = Serialization.readCsv(file, limit =limit)
 
   /** Read csv records from an input stream and return the data as a data frame.
     *
@@ -288,24 +326,25 @@ object DataFrame {
     *   if an error reading the stream occurs
     */
   @throws[IOException]
-  def readCsv(input: InputStream): DataFrame[AnyRef] = Serialization
-    .readCsv(input)
+  def readCsv(input: InputStream,limit: Int): DataFrame[AnyRef] = Serialization
+    .readCsv(input, limit = limit)
 
   @throws[IOException]
-  def readCsv(file: String, separator: String): DataFrame[AnyRef] =
-    Serialization.readCsv(file, separator, NumberDefault.LONG_DEFAULT)
+  def readCsv(file: String, separator: String,limit: Int): DataFrame[AnyRef] =
+    Serialization.readCsv(file, separator, NumberDefault.LONG_DEFAULT, limit = limit)
 
   @throws[IOException]
-  def readCsv(input: InputStream, separator: String): DataFrame[AnyRef] =
-    Serialization.readCsv(input, separator, NumberDefault.LONG_DEFAULT, null)
+  def readCsv(input: InputStream, separator: String,limit: Int): DataFrame[AnyRef] =
+    Serialization.readCsv(input, separator, NumberDefault.LONG_DEFAULT, null, limit = limit)
 
   @throws[IOException]
   def readCsv(
       input: InputStream,
       separator: String,
       naString: String,
+             limit: Int,
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, naString)
+    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, naString, limit = limit)
 
   @throws[IOException]
   def readCsv(
@@ -313,8 +352,9 @@ object DataFrame {
       separator: String,
       naString: String,
       hasHeader: Boolean,
+             limit: Int,
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, naString, hasHeader)
+    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, naString, hasHeader, limit = limit)
 
   @throws[IOException]
   def readCsv(
@@ -322,8 +362,9 @@ object DataFrame {
       separator: String,
       naString: String,
       hasHeader: Boolean,
+      limit: Int
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, NumberDefault.LONG_DEFAULT, naString, hasHeader)
+    .readCsv(file, separator, NumberDefault.LONG_DEFAULT, naString, hasHeader, limit = limit)
 
   @throws[IOException]
   def readCsv(
@@ -332,15 +373,17 @@ object DataFrame {
       numberDefault: DataFrame.NumberDefault,
       naString: String,
       hasHeader: Boolean,
+      limit: Int
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, numberDefault, naString, hasHeader)
+    .readCsv(file, separator, numberDefault, naString, hasHeader, limit = limit)
 
   @throws[IOException]
   def readCsv(
       file: String,
       separator: String,
       longDefault: DataFrame.NumberDefault,
-  ): DataFrame[AnyRef] = Serialization.readCsv(file, separator, longDefault)
+      limit: Int
+  ): DataFrame[AnyRef] = Serialization.readCsv(file, separator, longDefault, limit = limit)
 
   @throws[IOException]
   def readCsv(
@@ -348,16 +391,18 @@ object DataFrame {
       separator: String,
       longDefault: DataFrame.NumberDefault,
       naString: String,
+             limit: Int
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, longDefault, naString)
+    .readCsv(file, separator, longDefault, naString, limit = limit)
 
   @throws[IOException]
   def readCsv(
       input: InputStream,
       separator: String,
       longDefault: DataFrame.NumberDefault,
+      limit: Int
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, longDefault, null)
+    .readCsv(input, separator, longDefault, null, limit = limit)
 
   /** Read data from the specified excel workbook into a new data frame.
     *
@@ -506,7 +551,7 @@ object DataFrame {
   /** An enumeration of plot types for displaying data frames with charts.
     */
   enum PlotType:
-    case SCATTER, SCATTER_WITH_TREND, LINE, LINE_AND_POINTS, AREA, BAR, GRID,
+    case SCATTER, SCATTER_WITH_TREND, LINE, LINE_AND_POINTS, AREA, BAR, GRID, HEATMAP,
       GRID_WITH_TREND
 
   /** An enumeration of data frame axes.
@@ -640,22 +685,163 @@ class DataFrame[V](
     this.index = new Index(index, mgr.length())
   }
 
+  def resetColumns = {
+    val colNums = this.getColumns.zipWithIndex.map( ele => ele._2.asInstanceOf[AnyRef])
+    this.columns = new Index(colNums, colNums.size)
+    this
+  }
+  def toNumpyNDArray[V1: ClassTag](fillValue: Double = Double.NaN): NDArray[?] = {
+    val tag = DType.fromClassTag(implicitly[ClassTag[V1]])
+    val castDf = this.resetColumns.cast(implicitly[ClassTag[V1]].runtimeClass)
+//    val castDf = this.resetColumns.cast(implicitly[ClassTag[Double]].runtimeClass)
+    val dataFrame = castDf.toModelMatrixDataFrame
+    println(s"Dataframe toNumpyNDArray, invoke from toModelMatrixDataFrame get dataframe: columns : ${dataFrame.getColumns.mkString(", ")} ,column size : ${dataFrame.getColumns.size}  shape: ${dataFrame.getShape}")
+    val data:Array[Array[V1]] =dataFrame.toModelMatrix(fillValue) //.toModelMatrix()
+
+    val data2 = this.toModelMatrix(fillValue)
+    println(s"data2 ${data2.getClass.getName}, data2 size ${data2.length} tag  ${data2.mkString(", ")} ")
+    println(s"data ${data.getClass.getName} , data2 size ${data2.length} tag ${data.mkString(", ")} ")
+    val rows = this.getShape._1 // data.size
+    val cols = this.getShape._2 // data.head.size
+    val flattenedData = data.flatMap {
+      case arr: Array[V1] => arr
+//      case seq: Seq[V1] => seq.toArray
+      case single: V1 => Array(single)
+      case ss: Array[AnyRef] =>
+        println(s"error case ${data.getClass.getName}")
+        data.flatten.map(ele => {
+          println(s"ele ${ele.getClass.getName} ${ele}")
+          ele.toString.asInstanceOf[V1]
+        }).toArray
+      case other =>
+        println(s"error case se ${data.getClass.getName}")
+        try {
+          other.asInstanceOf[Array[V1]]
+        } catch {
+          case _: ClassCastException =>
+            println(s"Failed to cast $other to Array[V1]. Using empty array.")
+            Array.empty[V1]
+        }
+//        data.flatten.map(ele => {
+//          println(s"ele ${ele.getClass.getName} ${ele}")
+//          ele.toString.asInstanceOf[V1]
+//        }).toArray
+    }.map { elem =>
+      try {
+        elem.asInstanceOf[V1] //.toString.toDouble
+      } catch {
+        case _: NumberFormatException =>
+          println(s"Failed to convert $elem to Double. Using fillValue $fillValue instead.")
+          fillValue.asInstanceOf[V1]
+      }
+    }
+    //.map { elem =>
+//      try {
+//        elem.toString.toDouble
+//      } catch {
+//        case _: NumberFormatException =>
+//          println(s"Failed to convert $elem to Double. Using fillValue $fillValue instead.")
+//          fillValue
+//      }
+//    }
+    println(s" flattenedData ${flattenedData.getClass.getComponentType.getName} ${flattenedData.mkString(", ")}")
+
+    val ndArray: NDArray[?] = TorchNumpy.array(flattenedData,Array(rows,cols),2,tag)
+    ndArray.reshape(rows,cols)
+  }
+
+  //    val array = new NDArray[V](rows, cols)
+  //    for (i <- 0 until rows) {
+  //      for (j <- 0 until cols) {
+  //      }}  //[Double,V]
+
+  def values[T: ClassTag](isAllBoolean: Boolean = false) = {
+
+    val numDf = if isAllBoolean then this else  this.numeric
+    if(numDf.getColumns.size == 0) {
+      throw new IllegalArgumentException("DataFrame must contain at least one numeric column.")
+    }else{
+      numDf.transpose.toNumpyNDArray[T]().reshape(numDf.getShape._1, numDf.getShape._2)
+    }
+
+  }
+
+  /**
+   * 获取 DataFrame 的行数和列数。
+   *
+   * @return 包含行数和列数的元组，格式为 (行数, 列数)
+   */
+  def getShape: (Int, Int) = {
+    val rows = data.length()
+    val cols = data.size()
+    (rows, cols)
+  }
+  /**
+   * 将 DataFrame 分割为训练集和测试集，同时分离特征和标签。
+   *
+   * @param labelCol    标签列的名称
+   * @param testSize    测试集所占比例，范围在 0 到 1 之间
+   * @param randomState 随机种子，用于复现分割结果
+   * @return 包含训练集特征、测试集特征、训练集标签、测试集标签的四元组
+   */
+  def train_test_split(labelCol: AnyRef, testSize: Double = 0.2, randomState: Int = 42): (DataFrame[V], DataFrame[V], DataFrame[V], DataFrame[V]) = {
+    require(testSize > 0 && testSize < 1, "test dataset ratio must set  0 ~ 1 ")
+    require(this.getColumns.contains(labelCol), s"标签列 $labelCol 不存在于 DataFrame 中")
+
+    // 设置随机种子
+    scala.util.Random.setSeed(randomState)
+    // 打乱索引
+    val shuffledIndices = scala.util.Random.shuffle(0 until this.length)
+    // 计算分割点
+    val splitIndex = (this.length * (1 - testSize)).toInt
+    // 分割索引
+    val trainIndices = shuffledIndices.take(splitIndex)
+    val testIndices = shuffledIndices.drop(splitIndex)
+
+    // 获取特征列名
+    val featureCols = columns.names.filterNot(_ == labelCol)
+
+    // 提取训练集和测试集的特征和标签
+    val X_train = this.retain(featureCols.map(_.toString)).filterRows(trainIndices)
+    val X_test = this.retain(featureCols.map(_.toString)).filterRows(testIndices)
+    val y_train = this.retain(Seq(labelCol.toString)).filterRows(trainIndices)
+    val y_test = this.retain(Seq(labelCol.toString)).filterRows(testIndices)
+
+    (X_train, X_test, y_train, y_test)
+  }
+
+  /**
+   * 根据给定的行索引过滤 DataFrame。
+   *
+   * @param indices 要保留的行索引序列
+   * @return 过滤后的 DataFrame
+   */
+  private def filterRows(indices: Seq[Int]): DataFrame[V] = {
+    val newData = indices.map(i => this.data.getRow(i)).toList
+    new DataFrame[V](
+      index = new Index(indices.map(index.names(_)), indices.size),
+      columns = columns,
+      data = new BlockManager[V](newData.transpose),
+      groups = groups
+    )
+  }
+
   def writeParquet(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
     PolarsCompat.writeParquet(dataFrame,outPath)
   }
-  
+
   def writeAvro(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
     PolarsCompat.writeAvro(dataFrame,outPath)
   }
-  
+
   def writeJsonLine(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
     PolarsCompat.writeJsonLine(dataFrame,outPath)
   }
-  
+
   def writeIPC(dataFrame: DataFrame[AnyRef],outPath:String):Unit ={
     PolarsCompat.writeIPC(dataFrame,outPath)
   }
-  
+
 //  def this(index: Index, columns: Index, data: BlockManager[V], groups: Grouping[V]) = this(index, columns, data, groups)
 
 //  def this(index: Seq[?], columns: Seq[?], data:  Seq[? <:  Seq[? <: V]])={
@@ -832,6 +1018,13 @@ class DataFrame[V](
     columns.add(column, data.size())
     index.extend(values.size)
     data.add(values.toBuffer)
+    this
+  }
+
+  def addColumn(column: AnyRef, values: Seq[V]): DataFrame[V] = {
+    columns.add(column, data.size())
+    index.extend(values.size)
+    data.add(values.map(_.asInstanceOf[V]).toBuffer)
     this
   }
 
@@ -1515,6 +1708,42 @@ class DataFrame[V](
     */
   def getFromIndex(row: Int, col: Int): V = data.get(col, row)
 
+  def indexSelect(rowStart: Int, rowEnd: Int): DataFrame[V] =
+    slice(rowStart, rowEnd, 0, size)
+
+  //  def this(
+  //      index: Seq[AnyRef],
+  //      columns: Seq[AnyRef], //mutable.Seq[Any],
+  //      data: List[Seq[V]],
+
+  def indexSelect(indexSeq: Seq[AnyRef]): DataFrame[V] ={
+    val selectIndexNums = indexSeq.map(indexName => index.get(indexName))
+    val selectRowSeq = this.iterrows.filter(selectIndexNums.contains(_)).map(_.toSeq).toList
+    val selectDF = new DataFrame(selectIndexNums.map(_.asInstanceOf[AnyRef]), this.getColumns, selectRowSeq)
+    selectDF
+  }
+
+  def indexSelect(indexSeq: Seq[Int],isNumber:Boolean = true): DataFrame[V] = {
+    val selectIndexNums = indexSeq.map(indexName => this.index.getInt(indexName))
+    val selectRowSeq = this.iterrows.zipWithIndex.filter(rowIndex => selectIndexNums.contains(rowIndex._2)).map(_._1).toList
+    val selectDF = new DataFrame(selectIndexNums.map(_.asInstanceOf[AnyRef]), this.getColumns, selectRowSeq.transpose)
+    selectDF
+  }
+//    val selectIndexNums = indexSeq.map(indexName => index.getInt(indexName))
+//    val selectRowSeq = this.iterrows.zipWithIndex.filter( rowIndex => selectIndexNums.contains(rowIndex._2)).toList
+//    val selectDF = new DataFrame(selectIndexNums.map(_.asInstanceOf[AnyRef]), this.getColumns, selectRowSeq)
+//    selectDF
+
+
+
+  def columnSelect(colStart: Int, colEnd: Int): DataFrame[V] =
+    slice(0, length, colStart, colEnd)
+
+  def columnSelect(cols: Seq[AnyRef]): DataFrame[V] =
+    val featureCols = cols.map(col => columns.names.filter(_.equals(col))).flatten
+    val selectDF = this.retain(featureCols.map(_.toString))
+    selectDF
+
   def slice(rowStart: AnyRef, rowEnd: AnyRef): DataFrame[V] =
     slice(index.get(rowStart), index.get(rowEnd), 0, size)
 
@@ -2027,8 +2256,16 @@ class DataFrame[V](
     * @return
     *   a model matrix
     */
-  def toModelMatrix(fillValue: Double): Array[Array[Double]] = Conversion
-    .toModelMatrix(this, fillValue)
+  def toModelMatrix[V1: ClassTag](fillValue: Any): Array[Array[V1]] = {
+    val tag = implicitly[ClassTag[V1]]
+    val matrix = Conversion.toModelMatrix(this.asInstanceOf[DataFrame[V1]], fillValue)
+    matrix.asInstanceOf[Array[Array[V1]]]
+  }
+
+//  def toModelMatrix(fillValue: Double): Array[Array[Double]] = {
+//    val matrix = Conversion.toModelMatrix(this, fillValue.asInstanceOf[V])
+//    matrix
+//  }
 
   /** Encodes the DataFrame as a model matrix, converting nominal values to
     * dummy variables but does not add an intercept column.
@@ -2039,8 +2276,10 @@ class DataFrame[V](
     * @return
     *   a model matrix
     */
-  def toModelMatrixDataFrame: DataFrame[Number] = Conversion
-    .toModelMatrixDataFrame(this)
+  def toModelMatrixDataFrame: DataFrame[V] = {
+    val matrix = Conversion.toModelMatrixDataFrame(this)
+    matrix
+  }
 
   /** Group the data frame rows by the specified column names.
     *
@@ -2398,7 +2637,82 @@ class DataFrame[V](
     *   the data frame cast to the specified type
     */
   @SuppressWarnings(Array("unchecked"))
-  def cast[T](cls: Class[T]): DataFrame[T] = this.asInstanceOf[DataFrame[T]]
+  def cast[T](cls: Class[T]): DataFrame[T] = {
+    def convertValue(value: Any): T = {
+      if (value == null) {
+        null.asInstanceOf[T]
+      } else if (cls.isInstance(value)) {
+        value.asInstanceOf[T]
+      } else {
+        cls match {
+          case java.lang.Integer.TYPE  =>
+        value.toString.toInt.asInstanceOf[T]
+          case java.lang.Long.TYPE =>
+        value.toString.toLong.asInstanceOf[T]
+          case java.lang.Double.TYPE  =>
+        value.toString.toDouble.asInstanceOf[T]
+          case java.lang.Float.TYPE  =>
+        value.toString.toFloat.asInstanceOf[T]
+          case java.lang.Short.TYPE  =>
+        value.toString.toShort.asInstanceOf[T]
+          case java.lang.Byte.TYPE  =>
+        value.toString.toByte.asInstanceOf[T]
+          case java.lang.Boolean.TYPE  =>
+        value.toString.toBoolean.asInstanceOf[T]
+          case _ =>
+        value.toString.asInstanceOf[T]
+//          case _ =>
+//            throw new IllegalArgumentException(s"Unsupported target type: ${cls.getName}")
+        }
+      }
+    }
+
+    val data: List[Seq[T]]  = this.itercols.map(_.map(convertValue)).toList//this.itercols.map(_.map(cls.cast(_))).toList
+    val indexSeq: Seq[AnyRef] = index.names
+    val columnsSeq: Seq[AnyRef] = columns.names
+    new DataFrame[T](indexSeq, columnsSeq, data)
+//    new DataFrame[T](index, columns, data, groups)
+//    this.asInstanceOf[DataFrame[T]]
+  }
+
+  @SuppressWarnings(Array("unchecked"))
+//  def castz[T](cls: Class[T]): DataFrame[T] = {
+//    // 定义一个转换函数，根据目标类型进行不同的转换操作
+//    def convertValue(value: Any): T = {
+//      if (value == null) {
+//        null.asInstanceOf[T]
+//      } else if (cls.isInstance(value)) {
+//        value.asInstanceOf[T]
+//      } else {
+//        cls match {
+//          case java.lang.Integer.TYPE | classOf[java.lang.Integer] =>
+//        value.toString.toInt.asInstanceOf[T]
+//          case java.lang.Long.TYPE | classOf[java.lang.Long] =>
+//        value.toString.toLong.asInstanceOf[T]
+//          case java.lang.Double.TYPE | classOf[java.lang.Double] =>
+//        value.toString.toDouble.asInstanceOf[T]
+//          case java.lang.Float.TYPE | classOf[java.lang.Float] =>
+//        value.toString.toFloat.asInstanceOf[T]
+//          case java.lang.Short.TYPE | classOf[java.lang.Short] =>
+//        value.toString.toShort.asInstanceOf[T]
+//          case java.lang.Byte.TYPE | classOf[java.lang.Byte] =>
+//        value.toString.toByte.asInstanceOf[T]
+//          case java.lang.Boolean.TYPE | classOf[java.lang.Boolean] =>
+//        value.toString.toBoolean.asInstanceOf[T]
+//          case classOf[java.lang.String] =>
+//        value.toString.asInstanceOf[T]
+//          case _ =>
+//            throw new IllegalArgumentException(s"Unsupported target type: ${cls.getName}")
+//        }
+//      }
+//    }
+//
+//    // 对数据框中的每个元素进行类型转换
+//    val newData = data.map(_.map(convertValue))
+//
+//    // 创建一个新的数据框，使用转换后的数据
+//    new DataFrame[T](index, columns, newData, groups)
+//  }
 
   /** Return a map of index names to rows.
     *

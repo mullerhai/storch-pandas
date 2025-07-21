@@ -17,9 +17,14 @@
  */
 package torch.pandas.component
 
+//import org.knowm.xchart.style.C
 import com.xeiam.xchart.StyleManager.ChartType
 import com.xeiam.xchart.*
 import org.apache.commons.math3.stat.regression.SimpleRegression
+//import org.knowm.xchart.XChartPanel
+//import org.knowm.xchart.internal.ChartBuilder
+//import org.knowm.xchart.internal.chartpart.Chart
+//import org.knowm.xchart.internal.series.Series
 import torch.pandas.DataFrame
 import torch.pandas.DataFrame.PlotType
 
