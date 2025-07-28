@@ -83,6 +83,8 @@ ThisBuild / homepage := Some(new URL("https://storch.dev/api/"))
 ThisBuild / scmInfo := Some( ScmInfo( url( "https://github.com/mullerhai/storch-pandas" ), "scm:git:https://github.com/mullerhai/storch-pandas.git" ) )
 //ThisBuild / scmInfo := Some(new ScmInfo("https://github.com/mullerhai/storch-k8s.git"))
 //val scrImageVersion = "4.3.0" //4.0.34
+//ThisBuild / javaOptions ++= Seq("-Xms9G", "-Xmx26G" , "-Xss12M") // if deal with  billion data  -Xms9G -Xmx42G for 64G
+ThisBuild / javaOptions ++= Seq("-Xmx1024M", "-Xms128M", "-Xss12M") //normal set
 libraryDependencies += "com.lihaoyi" %% "requests" % "0.9.0"
 // https://mvnrepository.com/artifact/com.lihaoyi/upickle
 libraryDependencies += "com.lihaoyi" %% "upickle" % "4.2.1"
@@ -92,7 +94,7 @@ libraryDependencies += "com.lihaoyi" %% "os-lib" % "0.11.5-M10"
 libraryDependencies += "com.lihaoyi" %% "ujson" % "4.2.1"
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.18.1" % Test
 libraryDependencies += "io.github.mullerhai" % "storch-pickle_3" % "0.1.4"
-libraryDependencies += "io.github.mullerhai" % "storch-numpy_3" % "0.1.6"
+libraryDependencies += "io.github.mullerhai" % "storch-numpy_3" % "0.1.7"
 libraryDependencies += "io.github.mullerhai" % "storch-polars_3" % "0.1.5"
 libraryDependencies += "io.github.mullerhai" % "storch-safe-tensor_3" % "0.1.1"
 //libraryDependencies += "io.github.mullerhai" % "storch-scikit-learn_3" % "0.1.2" % Test exclude("org.scala-lang.modules","scala-collection-compat_2.13") exclude("org.typelevel","algebra_2.13")exclude("org.typelevel","cats-kernel_2.13")

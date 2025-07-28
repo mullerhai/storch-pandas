@@ -2,10 +2,12 @@ package testcase.suite.convertion
 
 import org.scalatest.funsuite.AnyFunSuite
 import torch.pandas.DataFrame
+import torch.pandas.DataFrame.{JoinType, train_test_split}
 
 class ConvertSuite extends AnyFunSuite{
   val trainPath = "D:\\data\\git\\testNumpy\\src\\main\\resources\\avazu\\train.csv"
   val testPath = "D:\\data\\git\\testNumpy\\src\\main\\resources\\avazu\\test.csv"
+  val etledPath = "D:\\code\\data\\llm\\手撕LLM速成班-试听课-小冬瓜AIGC-20231211\\combined_df.csv"
   //    val dff = readCSV
 
   test("split dataframe for train test dataset") {
@@ -83,6 +85,86 @@ class ConvertSuite extends AnyFunSuite{
     ndArray.printArray()
     println(s"train df shape ${traindf.getShape} column size ${traindf.getColumns.size} -> df.getColumns = ${traindf.getColumns.mkString(",")}")
     println(s"concatdf columns  concatdf shape ${ndArray.getShape} ") //column size ${concatdf.getColumns.size} -> selectdf.getColumns = ${concatdf.getColumns.mkString(",")}")
+  }
+
+  test("compute merge") {
+    val traindf = DataFrame.readCSV(trainPath, 500)
+    val testdf = DataFrame.readCSV(testPath, 500)
+    val df =traindf.merge(testdf)
+    println(df.getShape)
+    println(traindf.getShape)
+  }
+  test("compute join") {
+    val traindf = DataFrame.readCSV(trainPath, 500)
+    val testdf = DataFrame.readCSV(testPath, 500)
+    val desc = traindf.join(testdf, JoinType.INNER)
+    println(desc.getShape)
+  }
+
+  test("transform pandas to numpy ndarray 1") {
+    val traindf = DataFrame.readCsv(testPath, 500)
+
+    val desc = traindf.values[Double]()
+    println(desc.getShape)
+    println(desc.printArray())
+  }
+
+
+  test("transform pandas to numpy ndarray 2") {
+    val traindf = DataFrame.readCsv(etledPath, 500)
+
+    val desc = traindf.values[Double]()
+
+    println(desc.printArray())
+    println(desc.getShape)
+    println(traindf.getColumns.mkString(","))
+    println(traindf.nonnumeric.getColumns.mkString(","))
+    println(traindf.nonnumeric.getColumns.size)
+    println(traindf.numeric.getColumns.mkString(","))
+  }
+
+  test("transform pandas cast to double to numpy ndarray 3") {
+    val traindf = DataFrame.readCsv(etledPath, 500)
+    val numCols = traindf.nonnumeric.getColumns
+    val selectDf = traindf.columnSelect(numCols).cast(classOf[Double]).numeric
+//    traindf.numeric.cast(classOf[Double]).values[Double]().printArray()
+    val desc = selectDf.values[Double]()
+
+    println(desc.printArray())
+    println(selectDf.getShape)
+    println(selectDf.getColumns.mkString(","))
+//    println(traindf.nonnumeric.getColumns.mkString(","))
+//    println(traindf.nonnumeric.getColumns.size)
+//    println(traindf.numeric.getColumns.mkString(","))
+  }
+
+  test("transform pandas cast to double to numpy ndarray 4") {
+    val traindf = DataFrame.readCsv(etledPath, 500)
+    val numCols = traindf.nonnumeric.getColumns
+    val selectDf = traindf.cast(classOf[Double]).numeric
+    //    traindf.numeric.cast(classOf[Double]).values[Double]().printArray()
+    val desc = selectDf.values[Double]()
+
+    println(desc.printArray())
+    println(selectDf.getShape)
+    println(selectDf.getColumns.mkString(","))
+  }
+
+  test("split  pandas column  select then  concat these column to df") {
+    val traindf = DataFrame.readCsv(etledPath, 500)
+    val numCols = traindf.numeric.getColumns
+    val nonumCols = traindf.nonnumeric.getColumns
+    val numDf = traindf.columnSelect(numCols)
+    val nonumDf = traindf.columnSelect(nonumCols) //.cast(classOf[Double])
+    val mergeDf = numDf.merge(nonumDf)
+
+//    val selectDf = traindf.cast(classOf[Double]).numeric
+    //    traindf.numeric.cast(classOf[Double]).values[Double]().printArray()
+    val desc = mergeDf.values[Double]()
+
+    println(desc.printArray())
+    println(mergeDf.getShape)
+    println(mergeDf.getColumns.mkString(","))
   }
 
 }

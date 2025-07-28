@@ -68,7 +68,7 @@ object Combining:
     val leftMap = mutable.LinkedHashMap[AnyRef, List[V]]()
     val rightMap = mutable.LinkedHashMap[AnyRef, List[V]]()
 
-    println("try to join........")
+    logger.debug("try to join........")
     // Populate leftMap
     for (row <- left) { // Assuming DataFrame is Iterable[List[V]] or similar
       val name = leftIt.next()

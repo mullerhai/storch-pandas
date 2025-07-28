@@ -12,6 +12,7 @@ class ReadSuite extends AnyFunSuite {
   //    val npFile ="D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_bool_array.npy"
   val csvPath = "D:\\data\\git\\testNumpy\\src\\main\\resources\\avazu\\test.csv"
 
+  val csvPath2 = "D:\\code\\data\\llm\\手撕LLM速成班-试听课-小冬瓜AIGC-20231211\\data\\avazu\\test.csv"
   val picklePath = "D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_float32_array.npy"
   val xlsfile = "src/main/resources/sample_new2.xls"
   val xlsxfile = "src/main/resources/sample_new.xlsx"
@@ -93,6 +94,26 @@ class ReadSuite extends AnyFunSuite {
     df.show()
     println(df.getShape)
     println(df.getColumns.mkString(","))
+    println(df.nonnumeric.getColumns.mkString(","))
+
+  }
+
+  test("read csv file generate dataframe by normal") {
+    val df = DataFrame.readCsv(csvPath, 500)
+    df.show()
+    println(df.getShape)
+    println(df.getColumns.mkString(","))
+    println(df.nonnumeric.getColumns.mkString(","))
+
+  }
+
+  test("read csv file generate dataframe by normal 2") {
+    val df = DataFrame.readCsv(csvPath2, 500)
+    df.show()
+//    println(df.getShape)
+//    println(df.getColumns.mkString(","))
+//    println(df.nonnumeric.getColumns.mkString(","))
+    println(df.numeric.getColumns.mkString(","))
 
   }
 

@@ -369,7 +369,7 @@ object Serialization {
     var endTime = System.nanoTime()
     var duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
     var zduration = (endTime - preTmpEndTime) / 1e9
-    println(s"Serialization csv CsvListReader time cost all： $duration s ,this duration time cost $zduration s")
+    logger.debug(s"Serialization csv CsvListReader time cost all： $duration s ,this duration time cost $zduration s")
     preTmpEndTime = endTime
     try {
       var header: List[String] = null
@@ -393,11 +393,11 @@ object Serialization {
         endTime = System.nanoTime()
         duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
         zduration = (endTime - preTmpEndTime) / 1e9
-        println(s"Serialization csv CsvListReader time cost all： $duration s ,this duration time cost $zduration s")
+        logger.debug(s"Serialization csv CsvListReader time cost all： $duration s ,this duration time cost $zduration s")
         preTmpEndTime = endTime
       }
 
-      println(s"Serialization row begin read")
+      logger.debug(s"Serialization row begin read")
       breakable {
         var row = reader.read(procs*)
         while (row != null) {
@@ -406,11 +406,11 @@ object Serialization {
             df.append(row.asScala.toList)
             row = reader.read(procs*)
             index += 1
-            if (index % 10000 == 0) {
+            if (index % 1000000 == 0) {
               endTime = System.nanoTime() // 记录结束时间
               duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
               zduration = (endTime - preTmpEndTime) / 1e9
-              println(s"Serialization csv read progress $index time cost all： $duration s ,this duration time cost $zduration s")
+              logger.debug(s"Serialization csv read progress $index time cost all： $duration s ,this duration time cost $zduration s")
               preTmpEndTime = endTime
             }
           }
@@ -429,14 +429,14 @@ object Serialization {
 //          preTmpEndTime = endTime
 //        }
 //      }
-      println(
+      logger.debug(
         s"Serialization csv read finish generate df finish, begin df convert",
       )
       val cdf = df.convert(numDefault, naString)
       endTime = System.nanoTime() // 记录结束时间
       duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
       zduration = (endTime - preTmpEndTime) / 1e9
-      println(s"Serialization csv read progress $index time cost all： $duration s ,this duration time cost $zduration s")
+      logger.info(s"Serialization csv read progress $index time cost all： $duration s ,this duration time cost $zduration s")
 //      preTmpEndTime = endTime
       cdf
 

@@ -738,8 +738,8 @@ object DataFrame {
 }
 
 class DataFrame[V](
-    var index: Index = new Index(mutable.Set.empty, 0),
-    var columns: Index = new Index(mutable.Set.empty, 0),
+    var index: Index = new Index(mutable.Seq.empty, 0),
+    var columns: Index = new Index(mutable.Seq.empty, 0),
     var data: BlockManager[V] = new BlockManager[V](List.empty),
     var groups: Grouping[V] = new Grouping[V](),
 ) extends Iterable[Seq[V]] {
@@ -766,15 +766,15 @@ class DataFrame[V](
     *   the data
     */
   def this() = this(
-    new Index(mutable.Set.empty, 0),
-    new Index(mutable.Set.empty, 0),
+    new Index(mutable.Seq.empty, 0),
+    new Index(mutable.Seq.empty, 0),
     new BlockManager[V](List.empty),
     new Grouping(),
   )
 
   def this(columns: String*) = this(
-    new Index(mutable.Set.empty, 0),
-    new Index(mutable.Set(columns*), columns.length),
+    new Index(mutable.Seq.empty, 0),
+    new Index(mutable.Seq(columns*), columns.length),
     new BlockManager[V](List.empty),
     new Grouping(),
   )
@@ -794,8 +794,8 @@ class DataFrame[V](
   )
 
   def this(data: List[Seq[V]]) = this(
-    new Index(mutable.Set.empty, 0),
-    new Index(mutable.Set.empty, 0),
+    new Index(mutable.Seq.empty, 0),
+    new Index(mutable.Seq.empty, 0),
     new BlockManager[V](data),
     new Grouping(),
   )
@@ -817,28 +817,110 @@ class DataFrame[V](
   }
 
   def resetColumns = {
+    var preTime = System.nanoTime()
+    logger.debug(s"pandas Dataframe resetColumns Begin... from time ${preTime} ")
     val colNums = this.getColumns.zipWithIndex
       .map(ele => ele._2.asInstanceOf[AnyRef])
     this.columns = new Index(colNums, colNums.size)
+    var endTime = System.nanoTime() // 记录结束时间
+    var duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe resetColumns End... from time ${endTime} , cost time $duration s")
     this
   }
-  def toNumpyNDArray[V1: ClassTag](fillValue: Double = Double.NaN): NDArray[?] = {
+
+  def toNumpyNDArray[V1: ClassTag](fillValue: Double = Double.NaN, ignoreCastType: Boolean = true): NDArray[V1] = {
+    var preTime = System.nanoTime()
+    logger.debug(s"pandas Dataframe toNumpyNDArray Try to convert pandas to Numpy NDArray, Maybe need more time,please waiting. Beging.. from time $preTime s")
     val tag = DType.fromClassTag(implicitly[ClassTag[V1]])
+
+    val castDf = if (ignoreCastType) this.resetColumns else this.resetColumns.cast(implicitly[ClassTag[V1]].runtimeClass)
+    //    val castDf = this.resetColumns.cast(implicitly[ClassTag[Double]].runtimeClass)
+//    val dataFrame = castDf.toModelMatrixDataFrame
+    var endTime = System.nanoTime() // 记录结束时间
+    var duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe toNumpyNDArray resetColumns reset dtype and toModelMatrixDataFrame, 1. cost time $duration s")
+    val data: Array[Array[V1]] = castDf.toArray(classOf[Array[Array[V1]]]) //.asInstanceOf[Array[Array[V1]]] // dataFrame.toModelMatrix(fillValue) // .toModelMatrix()
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe toNumpyNDArray toArray  dataFrame.toModelMatrix, 2. cost time $duration s")
+    //    logger.debug(
+    //      s"Dataframe toNumpyNDArray, invoke from toModelMatrixDataFrame get dataframe: columns : ${dataFrame
+    //          .getColumns.mkString(", ")} ,column size : ${dataFrame.getColumns
+    //          .size}  shape: ${dataFrame.getShape}",
+    //    )
+
+    val rows = this.getShape._1 // data.size
+    val cols = this.getShape._2 // data.head.size
+    val flattenedData = data.flatMap {
+      case arr: Array[V1] => arr
+      //      case seq: Seq[V1] => seq.toArray
+      case single: V1 => Array(single)
+      case ss: Array[AnyRef] =>
+        logger.error(s"maybe error case Array[AnyRef]: ${data.getClass.getName} , please check")
+        data.flatten.map { ele =>
+          //          logger.error(s"ele ${ele.getClass.getName} $ele")
+          ele.toString.asInstanceOf[V1]
+        }.toArray
+      case other =>
+        logger.error(s"maybe error case se ${data.getClass.getName}, please check")
+        try other.asInstanceOf[Array[V1]]
+        catch {
+          case _: ClassCastException =>
+            logger.error(s"Failed to cast $other to Array[V1]. Using empty array.")
+            Array.empty[V1]
+        }
+      //        data.flatten.map(ele => {
+      //          println(s"ele ${ele.getClass.getName} ${ele}")
+      //          ele.toString.asInstanceOf[V1]
+      //        }).toArray
+    }.map(elem =>
+      try elem.asInstanceOf[V1] // .toString.toDouble
+      catch {
+        case _: NumberFormatException =>
+          logger.error(s"Failed to convert $elem to Double. Using fillValue $fillValue instead.")
+          fillValue.asInstanceOf[V1]
+      },
+    )
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe toNumpyNDArray  flattenedData, 3. cost time $duration s")
+    //    logger.debug(s" flattenedData ${flattenedData.getClass.getComponentType
+    //        .getName} ${flattenedData.mkString(", ")}")
+
+    val ndArray: NDArray[V1] = TorchNumpy
+      .array(flattenedData, Array(rows, cols), 2, tag)
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe toNumpyNDArray generate NDArray finish, 4. cost time $duration s")
+    ndArray.reshape(rows, cols)
+  }
+
+  def toNumpyNDArrayOld[V1: ClassTag](fillValue: Double = Double.NaN): NDArray[V1] = {
+    val tag = DType.fromClassTag(implicitly[ClassTag[V1]])
+    var preTime = System.nanoTime()
     val castDf = this.resetColumns.cast(implicitly[ClassTag[V1]].runtimeClass)
 //    val castDf = this.resetColumns.cast(implicitly[ClassTag[Double]].runtimeClass)
     val dataFrame = castDf.toModelMatrixDataFrame
-    logger.info(
-      s"Dataframe toNumpyNDArray, invoke from toModelMatrixDataFrame get dataframe: columns : ${dataFrame
-          .getColumns.mkString(", ")} ,column size : ${dataFrame.getColumns
-          .size}  shape: ${dataFrame.getShape}",
-    )
+    var endTime = System.nanoTime() // 记录结束时间
+    var duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe toNumpyNDArray toModelMatrixDataFrame, 1. cost time $duration s")
     val data: Array[Array[V1]] = dataFrame.toModelMatrix(fillValue) // .toModelMatrix()
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe toNumpyNDArray  dataFrame.toModelMatrix, 2. cost time $duration s")
+    //    logger.debug(
+//      s"Dataframe toNumpyNDArray, invoke from toModelMatrixDataFrame get dataframe: columns : ${dataFrame
+//          .getColumns.mkString(", ")} ,column size : ${dataFrame.getColumns
+//          .size}  shape: ${dataFrame.getShape}",
+//    )
 
-    val data2 = this.toModelMatrix(fillValue)
-    logger.info(s"data2 ${data2.getClass.getName}, data2 size ${data2
-        .length} tag  ${data2.mkString(", ")} ")
-    logger.info(s"data ${data.getClass.getName} , data2 size ${data2
-        .length} tag ${data.mkString(", ")} ")
     val rows = this.getShape._1 // data.size
     val cols = this.getShape._2 // data.head.size
     val flattenedData = data.flatMap {
@@ -846,13 +928,13 @@ class DataFrame[V](
 //      case seq: Seq[V1] => seq.toArray
       case single: V1 => Array(single)
       case ss: Array[AnyRef] =>
-        logger.error(s"error case ${data.getClass.getName}")
+        logger.error(s"maybe error case Array[AnyRef]: ${data.getClass.getName} , please check")
         data.flatten.map { ele =>
-          logger.error(s"ele ${ele.getClass.getName} $ele")
+//          logger.error(s"ele ${ele.getClass.getName} $ele")
           ele.toString.asInstanceOf[V1]
         }.toArray
       case other =>
-        logger.error(s"error case se ${data.getClass.getName}")
+        logger.error(s"maybe error case se ${data.getClass.getName}, please check")
         try other.asInstanceOf[Array[V1]]
         catch {
           case _: ClassCastException =>
@@ -871,38 +953,61 @@ class DataFrame[V](
           fillValue.asInstanceOf[V1]
       },
     )
-    // .map { elem =>
-//      try {
-//        elem.toString.toDouble
-//      } catch {
-//        case _: NumberFormatException =>
-//          println(s"Failed to convert $elem to Double. Using fillValue $fillValue instead.")
-//          fillValue
-//      }
-//    }
-    logger.info(s" flattenedData ${flattenedData.getClass.getComponentType
-        .getName} ${flattenedData.mkString(", ")}")
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe toNumpyNDArray  flattenedData, 3. cost time $duration s")
+//    logger.debug(s" flattenedData ${flattenedData.getClass.getComponentType
+//        .getName} ${flattenedData.mkString(", ")}")
 
-    val ndArray: NDArray[?] = TorchNumpy
+    val ndArray: NDArray[V1] = TorchNumpy
       .array(flattenedData, Array(rows, cols), 2, tag)
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe toNumpyNDArray generate NDArray, 4. cost time $duration s")
     ndArray.reshape(rows, cols)
   }
 
+
+  //    val data2 = this.toModelMatrix(fillValue)
+  //    logger.info(s"data2 ${data2.getClass.getName}, data2 size ${data2
+  //        .length} tag  ${data2.mkString(", ")} ")
+  //    logger.info(s"data ${data.getClass.getName} , data2 size ${data2
+  //        .length} tag ${data.mkString(", ")} ")
   //    val array = new NDArray[V](rows, cols)
   //    for (i <- 0 until rows) {
   //      for (j <- 0 until cols) {
   //      }}  //[Double,V]
 
-  def values[T: ClassTag](isAllBoolean: Boolean = false) = {
+  def values[T: ClassTag](isAllBoolean: Boolean = false, ignoreCastType: Boolean = true): NDArray[T] = {
 
     val numDf = if isAllBoolean then this else this.numeric
     if (numDf.getColumns.size == 0) {
       logger.error(s"DataFrame must contain at least one numeric column.")
       throw new IllegalArgumentException(
-      "DataFrame must contain at least one numeric column.",
-    )
-    } else numDf.transpose.toNumpyNDArray[T]()
-      .reshape(numDf.getShape._1, numDf.getShape._2)
+        "DataFrame must contain at least one numeric column.",
+      )
+    } else {
+      val mainStartTime = System.nanoTime() // 记录结束时间
+//      duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+      val transposeDf = numDf.transpose
+      var endTime = System.nanoTime() // 记录结束时间
+      var duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+      var preTime = endTime
+      logger.debug(s"pandas Dataframe transpose, 1. cost time $duration s")
+      val numpyDf = transposeDf.toNumpyNDArray[T](ignoreCastType = ignoreCastType)
+      endTime = System.nanoTime() // 记录结束时间
+      duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+      preTime = endTime
+      logger.debug(s"pandas Dataframe convert to Numpy NDArray no reshape,2. cost time $duration s")
+      val finalDf = numpyDf.reshape(numDf.getShape._1, numDf.getShape._2)
+      endTime = System.nanoTime() // 记录结束时间
+      duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+      preTime = endTime
+      logger.debug(s"pandas Dataframe convert to Numpy NDArray shape ${finalDf.getShape.mkString(",")},3. cost time $duration s")
+      finalDf
+    }
 
   }
 
@@ -2838,6 +2943,8 @@ class DataFrame[V](
     */
   @SuppressWarnings(Array("unchecked"))
   def cast[T](cls: Class[T]): DataFrame[T] = {
+    var preTime = System.nanoTime()
+    logger.debug(s"pandas Dataframe Cast Begin... from time ${preTime} ")
     def convertValue(value: Any): T =
       if (value == null) null.asInstanceOf[T]
       else if (cls.isInstance(value)) value.asInstanceOf[T]
@@ -2855,6 +2962,10 @@ class DataFrame[V](
       }
 
     val data: List[Seq[T]] = this.itercols.map(_.map(convertValue)).toList // this.itercols.map(_.map(cls.cast(_))).toList
+    var endTime = System.nanoTime() // 记录结束时间
+    var duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"pandas Dataframe Cast Element Dtype 1. cost time $duration s , data length ${data.length}")
     val indexSeq: Seq[AnyRef] = index.names
     val columnsSeq: Seq[AnyRef] = columns.names
     new DataFrame[T](indexSeq, columnsSeq, data)

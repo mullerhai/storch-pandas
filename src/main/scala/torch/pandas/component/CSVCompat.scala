@@ -22,6 +22,7 @@ object CSVCompat {
     val csv = CSVReader.open(csvPath)
     //    val csvSeq = csv.toStream.map(_.toSeq).toList
     val csvHeader = csv.readNext()
+    println(s"csv header ${csvHeader.mkString(",")}")
     val count = 150 // csvSeq.size
     val df = new DataFrame[AnyRef](csvHeader.get*)
     val iter = csv.iterator

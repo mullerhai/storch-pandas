@@ -33,7 +33,6 @@ import java.util.Date
 import java.util.List as JList
 import java.util.Map as JMap
 import java.util.Set as JSet
-
 import scala.collection.immutable.TreeSet
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -140,7 +139,7 @@ object Conversion:
         }
       if (all) {
         conversions.put(c, conv)
-        logger.info(s"Conversion convert 1 for  COL-> $c  out conv: $conv ")
+//        logger.debug(s"Conversion convert 1 for  COL-> $c  out conv: $conv ")
         break
       }
     })
@@ -261,8 +260,8 @@ object Conversion:
       fillValue: Any,
   ): Array[Array[V1]] = {
     val matrix = toModelMatrixDataFrame(df).fillna(fillValue.asInstanceOf[V1])
-    logger.info(s"Conversion toModel Matrix ->matrix df columns name ${matrix
-        .columns.names.mkString(",")} shape ->:  ${matrix.getShape}")
+//    logger.debug(s"Conversion toModel Matrix ->matrix df columns name ${matrix
+//        .columns.names.mkString(",")} shape ->:  ${matrix.getShape}")
 //    matrix.iterrows.map(_.toArray).toArray
     matrix.toArray(classOf[Array[Array[V1]]])
   } // Use classOf for Scala
@@ -441,6 +440,7 @@ object Conversion:
       isDummy: Boolean = false,
   ): DataFrame[V] = { // Return DataFrame[Number]
     val newDf = new DataFrame[V]() // Create a new DataFrame with Number type
+    var preTime = System.nanoTime() // 记录结束时间
 
     if (addIntercept) {
       // Add an intercept column
@@ -456,6 +456,10 @@ object Conversion:
     val columns: List[Any] = df.getColumns.toList
     // Get column types as Scala List
     val colTypes: List[Class[?]] = df.types.toList // Assuming df.types() returns Java List<Class<?>>
+    var endTime = System.nanoTime() // 记录结束时间
+    var duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"Conversion toModelMatrixDataFrame, 1. cost time $duration s")
     // Now convert Nominals (String columns) to dummy variables
     // Keep all others as is
     for (columnIdx <- 0 until df.size) { // Assuming size() is column count
@@ -466,26 +470,33 @@ object Conversion:
       if !colTypes.isEmpty then
         colTypes(columnIdx) match {
           case cls if classOf[JNumber].isAssignableFrom(cls) => // If it's a Number type
-            logger.info(s"Conversion toModelMatrixDataFrame  Number cls: ${cls
-                .toString}  value-> ${col.mkString(",")}")
-            val nums: ListBuffer[V] = new ListBuffer[V]() // Use Java List
-            for (num <- col) // Iterate through Java List using asScala
-              nums.append(num) // Cast to Java Number
-            newDf.addColumn(columnName, nums.toSeq) // Add the column to the new DataFrame
-            logger.info(
-              s"Conversion Number columnName $columnName newDf shape ${newDf
-                  .getShape}",
-            )
+//            logger.debug(s"Conversion toModelMatrixDataFrame  Number cls: ${cls
+//                .toString}  value-> ${col.mkString(",")}")
+            newDf.addColumn(columnName, col)
+//            val nums: ListBuffer[V] = new ListBuffer[V]() // Use Java List
+//            for (num <- col) // Iterate through Java List using asScala
+//              nums.append(num) // Cast to Java Number
+//            newDf.addColumn(columnName, nums.toSeq) // Add the column to the new DataFrame
+//            logger.debug(
+//              s"Conversion Number columnName $columnName newDf shape ${newDf
+//                  .getShape}",
+//            )
 
           case cls if classOf[Date].isAssignableFrom(cls) => // If it's a Date type
-            val dates: ListBuffer[JNumber] = new ListBuffer[JNumber]() // Use Java List
-            logger.info(s"Conversion toModelMatrixDataFrame  Date cls: ${cls
-                .toString}  value-> ${col.mkString(",")}")
-            for (date <- col) // Iterate through Java List using asScala
-              // Convert Date to Double (milliseconds since epoch)
-              dates
-                .append(JDouble.valueOf(date.asInstanceOf[Date].getTime.toDouble)) // Cast to Date, get time, convert to Double
-            newDf.addColumn(columnName, dates.map(_.asInstanceOf[V]).toSeq) // Add the column
+            val dateTimes: Seq[V] = col.map { date =>
+              JDouble.valueOf(date.asInstanceOf[Date].getTime.toDouble).asInstanceOf[V]
+            }.toSeq
+            // 显式指定返回值类型为 Unit 以避免警告
+            newDf.addColumn(columnName, dateTimes)
+
+//            val dates: ListBuffer[JNumber] = new ListBuffer[JNumber]() // Use Java List
+////            logger.debug(s"Conversion toModelMatrixDataFrame  Date cls: ${cls
+////                .toString}  value-> ${col.mkString(",")}")
+//            for (date <- col) // Iterate through Java List using asScala
+//              // Convert Date to Double (milliseconds since epoch)
+//              dates
+//                .append(JDouble.valueOf(date.asInstanceOf[Date].getTime.toDouble)) // Cast to Date, get time, convert to Double
+//            newDf.addColumn(columnName, dates.map(_.asInstanceOf[V]).toSeq) // Add the column
 
           case cls
               if classOf[Boolean].isAssignableFrom(cls) ||
@@ -497,21 +508,24 @@ object Conversion:
 //            bools.append(
 //              JDouble.valueOf(if (tVal.asInstanceOf[Boolean]) 1.0 else 0.0),
 //            ) // Cast to Boolean
-            val bools: ListBuffer[Boolean] = new ListBuffer[Boolean]() // Use Java List
-            logger.info(s"Conversion toModelMatrixDataFrame  Boolean cls: ${cls
-                .toString}  value-> ${col.mkString(",")}")
-            for (tVal <- col) // Iterate through Java List using asScala
-              // Convert Boolean to 1.0 or 0.0
-              bools.append(tVal.asInstanceOf[Boolean]) // Cast to Boolean
-            newDf.addColumn(columnName, bools.map(_.asInstanceOf[V]).toSeq) // Add the column
+            val boolsAsSeq: Seq[V] = col.map(_.asInstanceOf[Boolean].asInstanceOf[V]).toSeq
+            // 显式指定返回值类型为 Unit 以避免警告
+            newDf.addColumn(columnName, boolsAsSeq)
+//            val bools: ListBuffer[Boolean] = new ListBuffer[Boolean]() // Use Java List
+////            logger.debug(s"Conversion toModelMatrixDataFrame  Boolean cls: ${cls
+////                .toString}  value-> ${col.mkString(",")}")
+//            for (tVal <- col) // Iterate through Java List using asScala
+//              // Convert Boolean to 1.0 or 0.0
+//              bools.append(tVal.asInstanceOf[Boolean]) // Cast to Boolean
+//            newDf.addColumn(columnName, bools.map(_.asInstanceOf[V]).toSeq) // Add the column
 
           case cls
               if classOf[JString].isAssignableFrom(cls) ||
                 classOf[String].isAssignableFrom(cls) => // If it's a String type (Nominal)
             // Use mutable.HashSet for namesUsed
             val namesUsed = mutable.HashSet[String]()
-            logger.info(s"Conversion toModelMatrixDataFrame  String cls: ${cls
-                .toString}  value-> ${col.mkString(",")}")
+//            logger.debug(s"Conversion toModelMatrixDataFrame  String cls: ${cls
+//                .toString}  value-> ${col.mkString(",")}")
             // Get extra column data if template is provided
             if !isDummy then
               newDf.addColumn(columnName, col.map(_.asInstanceOf[V]).toSeq)
@@ -528,7 +542,10 @@ object Conversion:
                 Option(factorReferences).map(_.asScala.toMap).orNull,
                 naString,
               ) // Convert Java List/Map to Scala List/Map for the call
-
+              endTime = System.nanoTime() // 记录结束时间
+              duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+              preTime = endTime
+              logger.debug(s"Conversion toModelMatrixDataFrame, String case 1. cost time $duration s")
               val variable: List[List[JNumber]] = vr.col // vr.col is List[List[Number]]
               val names: Array[String] = vr.names // vr.names is String[]
 
@@ -541,10 +558,14 @@ object Conversion:
                 // Add the dummy variable column to the new DataFrame
                 newDf.addColumn(name, dummyColData.map(_.asInstanceOf[V]).toSeq) // Convert Scala List[Number] to Java List<Number>
               }
+              endTime = System.nanoTime() // 记录结束时间
+              duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+              preTime = endTime
+              logger.debug(s"Conversion toModelMatrixDataFrame, String case 2. cost time $duration s")
 
           case _ => // For any other type, assume it should be treated as nominal (String)
             // This case handles types not explicitly listed above, treating them like String for dummy variable creation
-            logger.info(
+            logger.debug(
               s"Conversion toModelMatrixDataFrame not match all value-> ${col
                   .mkString(",")}",
             )
@@ -559,7 +580,10 @@ object Conversion:
               Option(factorReferences).map(_.asScala.toMap).orNull,
               naString,
             )
-
+            endTime = System.nanoTime() // 记录结束时间
+            duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+            preTime = endTime
+            logger.debug(s"Conversion toModelMatrixDataFrame, NoMatch case 1. cost time $duration s")
             val variable: List[List[JNumber]] = vr.col
             val names: Array[String] = vr.names
 
@@ -570,10 +594,19 @@ object Conversion:
               cnt += 1
               newDf.addColumn(name, dummyColData.map(_.asInstanceOf[V]).toSeq)
             }
+            endTime = System.nanoTime() // 记录结束时间
+            duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+            preTime = endTime
+            logger.debug(s"Conversion toModelMatrixDataFrame, NoMatch case 2. cost time $duration s")
         }
     }
-    logger.info(s"Conversion toModelMatrixDataFrame new dataframe shape ${newDf
-        .getShape} ")
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"Conversion toModelMatrixDataFrame, final. cost time $duration s  new dataframe shape ${newDf
+      .getShape}")
+
+
     newDf // Return the new DataFrame
   }
 
@@ -643,6 +676,8 @@ object Conversion:
       references: Map[String, String] | Null,
       naString: String | Null,
   ): VariableToDummyResult = {
+    var preTime = System.nanoTime() // 记录结束时间
+
     // Use mutable.ListBuffer for building the result list of lists
     val result = mutable.ListBuffer[List[JNumber]]() // Use JNumber for Number
     // Convert column values to String, handling null and NA string
@@ -654,7 +689,10 @@ object Conversion:
     // Use immutable.TreeSet to get sorted unique factors
     var factors: TreeSet[String] = TreeSet.empty[String] ++ col // Start with factors from the column
     if (extra != null) factors = factors ++ extra.map(_.toString) // Add factors from extra data
-
+    var endTime = System.nanoTime() // 记录结束时间
+    var duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"Conversion VariableToDummy, 1. cost time $duration s")
     // Handle reference factor
     val referenceFactor: Option[String] = Option(references)
       .flatMap(_.get(columnName)) // Get reference factor safely
@@ -672,7 +710,10 @@ object Conversion:
           factors = factors - lastFactor
         }
     }
-
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"Conversion VariableToDummy, middle 2. cost time $duration s")
     // Convert the remaining factors into dummy variables
     val names: Array[String] = factors.toArray // Convert the Set of factor names to an Array
 
@@ -685,7 +726,10 @@ object Conversion:
         else newDummy.append(JDouble.valueOf(0.0)) // Add 0.0 as Double
       result.append(newDummy.toList) // Add the completed dummy column (converted to immutable List) to the result
     }
-
+    endTime = System.nanoTime() // 记录结束时间
+    duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+    preTime = endTime
+    logger.debug(s"Conversion VariableToDummy, final 3. cost time $duration s")
     // Return the result wrapped in the case class
     VariableToDummyResult(result.toList, names) // Convert the result ListBuffer to immutable List
   }
