@@ -3,6 +3,8 @@ package testcase.suite.io
 import org.scalatest.funsuite.AnyFunSuite
 import torch.pandas.DataFrame
 import torch.pandas.component.Person
+import torch.polars.Polars
+import torch.polars.example.utils.CommonUtils
 
 import java.sql.{Connection, DriverManager}
 
@@ -82,6 +84,25 @@ class ReadSuite extends AnyFunSuite {
     println(df.getColumns.mkString(","))
   }
 
+  test("read criteo by csv "){
+    def main(args: Array[String]): Unit = {
+      val path = "D:\\data\\git\\testNumpy\\src\\main\\resources\\criteo_small\\train.txt"
+      val header = Some((0 to 39).map(_.toString).toSeq)
+      val df = DataFrame.readCsv(file = path, separator = "\\t", naString = "", hasHeader = false, limit = -1, needConvert = false, headers = header)
+      df.show()
+    }
+  }
+
+  test("read criteo by CSV .."){
+    val path = "D:\\data\\git\\testNumpy\\src\\main\\resources\\criteo_small\\train.txt"
+    val header = Some((0 to 39).map(_.toString).toSeq)
+    val df = DataFrame.readCSV(file = path, spliterator = "\\t", header = header, limit = -1, needConvert = false)
+
+    df.show()
+
+  }
+
+
   test("read json line file by polars generate dataframe") {
     val df = DataFrame.readJsonLinePolars(jsonLinePath)
     df.show()
@@ -153,17 +174,22 @@ class ReadSuite extends AnyFunSuite {
   }
 
   test("read parquet file generate dataframe") {
-    val df = DataFrame.readParquet(picklePath)
+
+    val df = DataFrame.readParquet(parquetPath)
     df.show()
     println(df.getShape)
     println(df.getColumns.mkString(","))
   }
 
-  test("read parquet file generate dataframe by normal") {
-    val df = DataFrame.readParquet(picklePath)
+  test("read parquet file generate dataframe by polars") {
+    println(s"read parquet file generate dataframe by polars")
+    val path = CommonUtils.getResource(parquetPath)
+    val df = Polars.scan.parquet(path).collect()
     df.show()
-    println(df.getShape)
-    println(df.getColumns.mkString(","))
+//    val df = DataFrame.readParquet(picklePath)
+//    df.show()
+//    println(df.getShape)
+//    println(df.getColumns.mkString(","))
   }
 
 }

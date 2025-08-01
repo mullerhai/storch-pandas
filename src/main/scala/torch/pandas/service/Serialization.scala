@@ -197,7 +197,7 @@ object Serialization {
   }
 
   @throws[IOException]
-  def readCsv(file: String, limit: Int = -1, needConvert: Boolean = false): DataFrame[AnyRef] = readCsv(
+  def readCsv(file: String, limit: Int = -1, needConvert: Boolean = false,headers: Option[Seq[String]] = None): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
     ",",
@@ -205,6 +205,7 @@ object Serialization {
     null,
     limit = limit,
     needConvert = needConvert,
+    headers = headers,
   )
 
   @throws[IOException]
@@ -213,7 +214,7 @@ object Serialization {
       separator: String,
       numDefault: DataFrame.NumberDefault,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
@@ -221,7 +222,8 @@ object Serialization {
     numDefault,
     null,
     limit = limit,
-    needConvert = needConvert
+    needConvert = needConvert,
+    headers = headers
   )
 
   @throws[IOException]
@@ -231,7 +233,8 @@ object Serialization {
       numDefault: DataFrame.NumberDefault,
       naString: String,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
@@ -240,6 +243,7 @@ object Serialization {
     naString,
     limit = limit,
     needConvert = needConvert,
+    headers = headers
   )
 
   @throws[IOException]
@@ -250,7 +254,8 @@ object Serialization {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
@@ -260,11 +265,12 @@ object Serialization {
     hasHeader,
     limit = limit,
     needConvert = needConvert,
+    headers = headers
   )
 
   @throws[IOException]
-  def readCsv(input: InputStream, limit: Int, needConvert: Boolean): DataFrame[AnyRef] =
-    readCsv(input, ",", NumberDefault.LONG_DEFAULT, null, limit = limit, needConvert = needConvert)
+  def readCsv(input: InputStream, limit: Int, needConvert: Boolean, headers: Option[Seq[String]]): DataFrame[AnyRef] =
+    readCsv(input, ",", NumberDefault.LONG_DEFAULT, null, limit = limit, needConvert = needConvert, headers = headers)
 
   @throws[IOException]
   def readCsv(
@@ -273,9 +279,10 @@ object Serialization {
       numDefault: DataFrame.NumberDefault,
       naString: String,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] =
-    readCsv(input, separator, numDefault, naString, true, limit = limit, needConvert = needConvert)
+    readCsv(input, separator, numDefault, naString, true, limit = limit, needConvert = needConvert, headers = headers)
 
   def readCsvOld(
       input: InputStream,
@@ -359,7 +366,8 @@ object Serialization {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = {
     val csvPreference = separator match {
       case "\\t" => CsvPreference.TAB_PREFERENCE
@@ -391,7 +399,7 @@ object Serialization {
         df = new DataFrame[AnyRef](header*)
       } else {
         reader.read()
-        header = (0 until reader.length()).map(i => s"V$i").toList
+        header = if !headers.isDefined then (0 until reader.length()).map(i => s"V$i").toList else  headers.get.toList
 //        header = new util.ArrayList[String]()
 //        for (i <- 0 until reader.length()) {
 //          header.add(s"V$i")

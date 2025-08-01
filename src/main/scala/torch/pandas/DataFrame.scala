@@ -437,8 +437,8 @@ object DataFrame {
     *   if an error reading the file occurs
     */
   @throws[IOException]
-  def readCsv(file: String, limit: Int = -1, needConvert: Boolean = false): DataFrame[AnyRef] = Serialization
-    .readCsv(file, limit = limit, needConvert = needConvert)
+  def readCsv(file: String, limit: Int = -1, needConvert: Boolean = false,headers: Option[Seq[String]] = None): DataFrame[AnyRef] = Serialization
+    .readCsv(file, limit = limit, needConvert = needConvert, headers = headers)
 
   /** Read csv records from an input stream and return the data as a data frame.
     *
@@ -450,22 +450,23 @@ object DataFrame {
     *   if an error reading the stream occurs
     */
   @throws[IOException]
-  def readCsv(input: InputStream, limit: Int, needConvert: Boolean): DataFrame[AnyRef] = Serialization
-    .readCsv(input, limit = limit, needConvert = needConvert)
+  def readCsv(input: InputStream, limit: Int, needConvert: Boolean,headers: Option[Seq[String]]): DataFrame[AnyRef] = Serialization
+    .readCsv(input, limit = limit, needConvert = needConvert, headers = headers)
 
   @throws[IOException]
-  def readCsv(file: String, separator: String, limit: Int, needConvert: Boolean): DataFrame[AnyRef] =
+  def readCsv(file: String, separator: String, limit: Int, needConvert: Boolean,headers: Option[Seq[String]]): DataFrame[AnyRef] =
     Serialization
-      .readCsv(file, separator, NumberDefault.LONG_DEFAULT, limit = limit, needConvert = needConvert)
+      .readCsv(file, separator, NumberDefault.LONG_DEFAULT, limit = limit, needConvert = needConvert, headers = headers)
 
   @throws[IOException]
   def readCsv(
       input: InputStream,
       separator: String,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, null, limit = limit, needConvert = needConvert)
+    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, null, limit = limit, needConvert = needConvert, headers = headers)
 
   @throws[IOException]
   def readCsv(
@@ -473,7 +474,8 @@ object DataFrame {
       separator: String,
       naString: String,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = Serialization.readCsv(
     input,
     separator,
@@ -481,6 +483,7 @@ object DataFrame {
     naString,
     limit = limit,
     needConvert = needConvert,
+    headers = headers
   )
 
   @throws[IOException]
@@ -490,7 +493,8 @@ object DataFrame {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]] 
   ): DataFrame[AnyRef] = Serialization.readCsv(
     input,
     separator,
@@ -498,7 +502,8 @@ object DataFrame {
     naString,
     hasHeader,
     limit = limit,
-    needConvert = needConvert
+    needConvert = needConvert,
+    headers = headers
   )
 
   @throws[IOException]
@@ -508,7 +513,8 @@ object DataFrame {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]] 
   ): DataFrame[AnyRef] = Serialization.readCsv(
     file,
     separator,
@@ -516,7 +522,8 @@ object DataFrame {
     naString,
     hasHeader,
     limit = limit,
-    needConvert = needConvert
+    needConvert = needConvert,
+    headers = headers
   )
 
   @throws[IOException]
@@ -527,9 +534,10 @@ object DataFrame {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]] 
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, numberDefault, naString, hasHeader, limit = limit, needConvert = needConvert)
+    .readCsv(file, separator, numberDefault, naString, hasHeader, limit = limit, needConvert = needConvert, headers = headers)
 
   @throws[IOException]
   def readCsv(
@@ -537,9 +545,10 @@ object DataFrame {
       separator: String,
       longDefault: DataFrame.NumberDefault,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, longDefault, limit = limit, needConvert = needConvert)
+    .readCsv(file, separator, longDefault, null, limit = limit, needConvert = needConvert, headers = headers)
 
   @throws[IOException]
   def readCsv(
@@ -548,9 +557,10 @@ object DataFrame {
       longDefault: DataFrame.NumberDefault,
       naString: String,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, longDefault, naString, limit = limit, needConvert = needConvert)
+    .readCsv(file, separator, longDefault, naString, limit = limit, needConvert = needConvert, headers = headers)
 
   @throws[IOException]
   def readCsv(
@@ -558,9 +568,10 @@ object DataFrame {
       separator: String,
       longDefault: DataFrame.NumberDefault,
       limit: Int,
-      needConvert: Boolean
+      needConvert: Boolean,
+      headers: Option[Seq[String]]
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, longDefault, null, limit = limit, needConvert = needConvert)
+    .readCsv(input, separator, longDefault, null, limit = limit, needConvert = needConvert, headers = headers)
 
   /** Read data from the specified excel workbook into a new data frame.
     *
