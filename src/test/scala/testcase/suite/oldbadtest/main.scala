@@ -4,7 +4,7 @@ import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import torch.numpy.enums.DType.Int64
 import torch.numpy.matrix.NDArray
-import torch.numpy.serve.TorchNumpy
+import torch.numpy.TorchNumpy
 import torch.pandas.DataFrame
 import torch.pandas.DataFrame.Axis.{COLUMNS, ROWS}
 import torch.pandas.DataFrame.{JoinType, PlotType}

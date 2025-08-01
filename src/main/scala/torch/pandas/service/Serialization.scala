@@ -197,13 +197,14 @@ object Serialization {
   }
 
   @throws[IOException]
-  def readCsv(file: String, limit: Int = -1): DataFrame[AnyRef] = readCsv(
+  def readCsv(file: String, limit: Int = -1, needConvert: Boolean = false): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
     ",",
     NumberDefault.LONG_DEFAULT,
     null,
     limit = limit,
+    needConvert = needConvert,
   )
 
   @throws[IOException]
@@ -212,6 +213,7 @@ object Serialization {
       separator: String,
       numDefault: DataFrame.NumberDefault,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
@@ -219,6 +221,7 @@ object Serialization {
     numDefault,
     null,
     limit = limit,
+    needConvert = needConvert
   )
 
   @throws[IOException]
@@ -228,6 +231,7 @@ object Serialization {
       numDefault: DataFrame.NumberDefault,
       naString: String,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
@@ -235,6 +239,7 @@ object Serialization {
     numDefault,
     naString,
     limit = limit,
+    needConvert = needConvert,
   )
 
   @throws[IOException]
@@ -245,6 +250,7 @@ object Serialization {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = readCsv(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
@@ -253,11 +259,12 @@ object Serialization {
     naString,
     hasHeader,
     limit = limit,
+    needConvert = needConvert,
   )
 
   @throws[IOException]
-  def readCsv(input: InputStream, limit: Int): DataFrame[AnyRef] =
-    readCsv(input, ",", NumberDefault.LONG_DEFAULT, null, limit = limit)
+  def readCsv(input: InputStream, limit: Int, needConvert: Boolean): DataFrame[AnyRef] =
+    readCsv(input, ",", NumberDefault.LONG_DEFAULT, null, limit = limit, needConvert = needConvert)
 
   @throws[IOException]
   def readCsv(
@@ -266,8 +273,9 @@ object Serialization {
       numDefault: DataFrame.NumberDefault,
       naString: String,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] =
-    readCsv(input, separator, numDefault, naString, true, limit = limit)
+    readCsv(input, separator, numDefault, naString, true, limit = limit, needConvert = needConvert)
 
   def readCsvOld(
       input: InputStream,
@@ -351,6 +359,7 @@ object Serialization {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = {
     val csvPreference = separator match {
       case "\\t" => CsvPreference.TAB_PREFERENCE
@@ -432,7 +441,7 @@ object Serialization {
       logger.debug(
         s"Serialization csv read finish generate df finish, begin df convert",
       )
-      val cdf = df.convert(numDefault, naString)
+      val cdf = if needConvert then df.convert(numDefault, naString) else df
       endTime = System.nanoTime() // 记录结束时间
       duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
       zduration = (endTime - preTmpEndTime) / 1e9
@@ -592,13 +601,14 @@ object Serialization {
     }
 
   @throws[IOException]
-  def readXls(file: String): DataFrame[AnyRef] = readXls(
+  def readXls(file: String, needConvert: Boolean): DataFrame[AnyRef] = readXls(
     if (file.contains("://")) new URL(file).openStream
     else new FileInputStream(file),
+    needConvert
   )
 
   @throws[IOException]
-  def readXls(input: InputStream): DataFrame[AnyRef] = {
+  def readXls(input: InputStream, needConvert: Boolean): DataFrame[AnyRef] = {
 //    val wb = new XSSFWorkbook(input)
     val wb = new HSSFWorkbook(input)
     val sheet = wb.getSheetAt(0)
@@ -621,7 +631,7 @@ object Serialization {
     val df = new DataFrame[AnyRef](columns.map(_.toString).toArray*)
 
     for (row <- data) df.append(row)
-    df.convert
+    if needConvert then df.convert else df
   }
 
   @throws[IOException]

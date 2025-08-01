@@ -16,8 +16,44 @@ import org.slf4j.LoggerFactory
 object CSVCompat {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  
-  def readCSV(csvPath: String, limit: Int = -1): DataFrame[AnyRef] = {
+
+  def readCSVs(csvPath: String, limit: Int = -1, spliterator: String = ",", header:Option[Seq[String]] = None, needConvert: Boolean = false): DataFrame[AnyRef] = {
+
+    val csv = CSVReader.open(csvPath)
+    //    val csvSeq = csv.toStream.map(_.toSeq).toList
+    val csvHeader = csv.readNext()
+    println(s"csv header ${csvHeader.mkString(",")}")
+
+    val count = 150 // csvSeq.size
+    val df = if header.isDefined then new DataFrame[AnyRef](header.get *) else  new DataFrame[AnyRef](csv.readNext().get *)
+    val iter = csv.iterator
+    var index = 0
+    val mainStartTime = System.nanoTime()
+    var preTmpEndTime = System.nanoTime()
+    breakable {
+      while (iter.hasNext)
+        if (index < limit || limit <= -1) {
+          val line = iter.next()
+//          println(s"num $index, line length ${line.length} line ${line.mkString(",")}")
+          df.append(index.toString, line)
+          index += 1
+          if (index % 10000 == 0) {
+            val endTime = System.nanoTime() // 记录结束时间
+            val duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
+            val zduration = (endTime - preTmpEndTime) / 1e9
+            println(s"csv read progress $index time cost all： $duration s ,this duration time cost $zduration s")
+            preTmpEndTime = endTime
+          }
+        } else {
+          println(s"csv read finish! data count $index")
+          break
+        }
+
+    }
+    if needConvert then df.convert else df
+  }
+
+  def readCSV(csvPath: String, limit: Int = -1, needConvert: Boolean = false): DataFrame[AnyRef] = {
 
     val csv = CSVReader.open(csvPath)
     //    val csvSeq = csv.toStream.map(_.toSeq).toList
@@ -36,7 +72,7 @@ object CSVCompat {
           //          println(s"num $index, line ${line.mkString(",")}")
           df.append(index.toString, line)
           index += 1
-          if (index % 1000 == 0) {
+          if (index % 10000 == 0) {
             val endTime = System.nanoTime() // 记录结束时间
             val duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
             val zduration = (endTime - preTmpEndTime) / 1e9
@@ -49,6 +85,6 @@ object CSVCompat {
         }
 
     }
-    df
+    if needConvert then df.convert else df
   }
 }

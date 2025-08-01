@@ -40,7 +40,9 @@ import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
 import com.typesafe.scalalogging.Logger
 import org.slf4j.LoggerFactory
+import torch.csv.CSVFormat
 import torch.pandas.DataFrame.logger
+import torch.pandas.component.{Hdf5Compat, RatingCSVCompat}
 //import java.lang.reflect.Array
 import com.codahale.metrics.annotation.Timed
 
@@ -49,7 +51,7 @@ import torch.numpy.enums.DType.Float32
 import torch.numpy.extern.NpyFile
 import torch.numpy.matrix.NDArray
 import torch.numpy.serve.Numpy
-import torch.numpy.serve.TorchNumpy
+import torch.numpy.TorchNumpy
 import torch.pandas.DataFrame
 import torch.pandas.DataFrame.Axis
 import torch.pandas.DataFrame.Axis.ROWS
@@ -329,9 +331,17 @@ object DataFrame {
       spliterator: String = ",",
   ): Unit = JsonCompat.parseJsonFileToCSVFile(jsonPath, csvPath, spliterator)
 
-  def readCSV(file: String, limit: Int = -1): DataFrame[AnyRef] = CSVCompat
-    .readCSV(file, limit)
+  def readCSV(file: String, limit: Int = -1, spliterator: String = ",", header:Option[Seq[String]] = None, needConvert: Boolean = false): DataFrame[AnyRef] = CSVCompat
+    .readCSVs(file, limit, spliterator, header, needConvert)
 
+  //      csvPath: String,
+  //      header: Seq[String] = null,
+  //      limit: Int = -1,
+  given customCSVFormat: CSVFormat = RatingCSVCompat.customCSVFormat
+  def readRatingCSV(file: String, limit: Int = -1, header: Option[Seq[String]] = None, needConvert: Boolean = false)(using customCSVFormat: CSVFormat = RatingCSVCompat.customCSVFormat): DataFrame[AnyRef] =
+  RatingCSVCompat.readCSV(file, header,limit, needConvert)
+  
+  
   def readJson(
       jsonPath: String,
       isJsonLine: Boolean = false,
@@ -347,8 +357,14 @@ object DataFrame {
   ): DataFrame[AnyRef] = JsonCompat
     .parseJsonLineToDataFrame(jsonPath, recursionHeader, limit)
 
-  def readXlsx(xlsxPath: String): DataFrame[AnyRef] = XlsxCompat
-    .readXlsx(xlsxPath)
+  def readXlsx(xlsxPath: String, needConvert: Boolean = false): DataFrame[AnyRef] = XlsxCompat
+    .readXlsx(xlsxPath, needConvert)
+
+  def readHdf5(hdf5Path: String, datasetName: String, needConvert: Boolean = false): Array[AnyRef] = {
+    val caseSeq = Hdf5Compat.readHdf5(hdf5Path,datasetName, needConvert)
+//    fromCaseClassSeq(caseSeq)
+    caseSeq
+  }
 
   def readPickle[T: ClassTag](picklePath: String): DataFrame[T] = {
     val caseSeq = PickleCompat.readPickleForCaseClassSeq[T](picklePath)
@@ -421,8 +437,8 @@ object DataFrame {
     *   if an error reading the file occurs
     */
   @throws[IOException]
-  def readCsv(file: String, limit: Int = -1): DataFrame[AnyRef] = Serialization
-    .readCsv(file, limit = limit)
+  def readCsv(file: String, limit: Int = -1, needConvert: Boolean = false): DataFrame[AnyRef] = Serialization
+    .readCsv(file, limit = limit, needConvert = needConvert)
 
   /** Read csv records from an input stream and return the data as a data frame.
     *
@@ -434,21 +450,22 @@ object DataFrame {
     *   if an error reading the stream occurs
     */
   @throws[IOException]
-  def readCsv(input: InputStream, limit: Int): DataFrame[AnyRef] = Serialization
-    .readCsv(input, limit = limit)
+  def readCsv(input: InputStream, limit: Int, needConvert: Boolean): DataFrame[AnyRef] = Serialization
+    .readCsv(input, limit = limit, needConvert = needConvert)
 
   @throws[IOException]
-  def readCsv(file: String, separator: String, limit: Int): DataFrame[AnyRef] =
+  def readCsv(file: String, separator: String, limit: Int, needConvert: Boolean): DataFrame[AnyRef] =
     Serialization
-      .readCsv(file, separator, NumberDefault.LONG_DEFAULT, limit = limit)
+      .readCsv(file, separator, NumberDefault.LONG_DEFAULT, limit = limit, needConvert = needConvert)
 
   @throws[IOException]
   def readCsv(
       input: InputStream,
       separator: String,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, null, limit = limit)
+    .readCsv(input, separator, NumberDefault.LONG_DEFAULT, null, limit = limit, needConvert = needConvert)
 
   @throws[IOException]
   def readCsv(
@@ -456,12 +473,14 @@ object DataFrame {
       separator: String,
       naString: String,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = Serialization.readCsv(
     input,
     separator,
     NumberDefault.LONG_DEFAULT,
     naString,
     limit = limit,
+    needConvert = needConvert,
   )
 
   @throws[IOException]
@@ -471,6 +490,7 @@ object DataFrame {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = Serialization.readCsv(
     input,
     separator,
@@ -478,6 +498,7 @@ object DataFrame {
     naString,
     hasHeader,
     limit = limit,
+    needConvert = needConvert
   )
 
   @throws[IOException]
@@ -487,6 +508,7 @@ object DataFrame {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = Serialization.readCsv(
     file,
     separator,
@@ -494,6 +516,7 @@ object DataFrame {
     naString,
     hasHeader,
     limit = limit,
+    needConvert = needConvert
   )
 
   @throws[IOException]
@@ -504,8 +527,9 @@ object DataFrame {
       naString: String,
       hasHeader: Boolean,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, numberDefault, naString, hasHeader, limit = limit)
+    .readCsv(file, separator, numberDefault, naString, hasHeader, limit = limit, needConvert = needConvert)
 
   @throws[IOException]
   def readCsv(
@@ -513,8 +537,9 @@ object DataFrame {
       separator: String,
       longDefault: DataFrame.NumberDefault,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, longDefault, limit = limit)
+    .readCsv(file, separator, longDefault, limit = limit, needConvert = needConvert)
 
   @throws[IOException]
   def readCsv(
@@ -523,8 +548,9 @@ object DataFrame {
       longDefault: DataFrame.NumberDefault,
       naString: String,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(file, separator, longDefault, naString, limit = limit)
+    .readCsv(file, separator, longDefault, naString, limit = limit, needConvert = needConvert)
 
   @throws[IOException]
   def readCsv(
@@ -532,8 +558,9 @@ object DataFrame {
       separator: String,
       longDefault: DataFrame.NumberDefault,
       limit: Int,
+      needConvert: Boolean
   ): DataFrame[AnyRef] = Serialization
-    .readCsv(input, separator, longDefault, null, limit = limit)
+    .readCsv(input, separator, longDefault, null, limit = limit, needConvert = needConvert)
 
   /** Read data from the specified excel workbook into a new data frame.
     *
@@ -545,7 +572,7 @@ object DataFrame {
     *   if an error occurs reading the workbook
     */
   @throws[IOException]
-  def readXls(file: String): DataFrame[AnyRef] = Serialization.readXls(file)
+  def readXls(file: String, needConvert: Boolean = false): DataFrame[AnyRef] = Serialization.readXls(file, needConvert)
 
   /** Read data from the input stream as an excel workbook into a new data
     * frame.
@@ -558,8 +585,8 @@ object DataFrame {
     *   if an error occurs reading the input stream
     */
   @throws[IOException]
-  def readXls(input: InputStream): DataFrame[AnyRef] = Serialization
-    .readXls(input)
+  def readXls(input: InputStream, needConvert: Boolean): DataFrame[AnyRef] = Serialization
+    .readXls(input, needConvert)
 
   /** Execute the SQL query and return the results as a new data frame.
     *
@@ -829,6 +856,319 @@ class DataFrame[V](
     this
   }
 
+  /**
+   * 将当前 DataFrame 按指定的 chunkSize 进行惰性切分。
+   * 如果行数不能被 chunkSize 完全整除，剩余部分会作为一个独立的 chunk。
+   *
+   * @param chunkSize 每个 chunk 包含的行数
+   * @return 包含切分后 DataFrame 的 LazyList
+   */
+  def splitChunkLazy(chunkSize: Int): LazyList[DataFrame[V]] = {
+    require(chunkSize > 0, "chunkSize 必须大于 0")
+    val rows = this.getShape._1
+    LazyList.from(0 until rows by chunkSize).map { start =>
+      val end = math.min(start + chunkSize, rows)
+      val indices = start until end
+      val newDf = this.filterRows(indices).resetIndex
+      newDf
+    }
+  }
+
+  /**
+   * 将当前 DataFrame 按指定的 chunkSize 进行流式切分。
+   * 如果行数不能被 chunkSize 完全整除，剩余部分会作为一个独立的 chunk。
+   *
+   * @param chunkSize 每个 chunk 包含的行数
+   * @return 包含切分后 DataFrame 的 Stream
+   */
+  def splitChunkStream(chunkSize: Int): Stream[DataFrame[V]] = {
+    require(chunkSize > 0, "chunkSize 必须大于 0")
+    val rows = this.getShape._1
+    Stream.from(0 until rows by chunkSize).map { start =>
+      val end = math.min(start + chunkSize, rows)
+      val indices = start until end
+      val newDf = this.filterRows(indices).resetIndex
+      newDf
+    }
+  }
+  /**
+   * 将当前 DataFrame 按指定的 chunkSize 进行迭代切分。
+   * 如果行数不能被 chunkSize 完全整除，剩余部分会作为一个独立的 chunk。
+   *
+   * @param chunkSize 每个 chunk 包含的行数
+   * @return 包含切分后 DataFrame 的 Iterator
+   */
+  def splitChunkIter(chunkSize: Int): Iterator[DataFrame[V]] = {
+    require(chunkSize > 0, "chunkSize 必须大于 0")
+    var preTime = System.nanoTime()
+    var endTime = System.nanoTime()
+    logger.debug(s"pandas Dataframe splitChunkIter Begin... from time ${preTime} ")
+    val rows = this.getShape._1
+    Iterator.from(0 until rows by chunkSize).map { start =>
+      val end = math.min(start + chunkSize, rows)
+      val indices = start until end
+      val newDf = this.filterRows(indices).resetIndex
+      endTime = System.nanoTime()
+      val duration = (endTime - preTime) / 1e9
+      preTime = endTime
+      logger.debug(s"pandas Dataframe num ${start / chunkSize} splitChunkIter from start ${start} to end ${end} ... from time ${endTime} , cost time $duration s")
+      newDf
+    }
+  }
+  /**
+   * 将当前 DataFrame 按指定的 chunkSize 进行切分。
+   * 如果行数不能被 chunkSize 完全整除，剩余部分会作为一个独立的 chunk。
+   *
+   * @param chunkSize 每个 chunk 包含的行数
+   * @return 包含切分后 DataFrame 的 Seq
+   */
+  def splitChunk(chunkSize: Int): Seq[DataFrame[V]] = {
+    require(chunkSize > 0, "chunkSize 必须大于 0")
+    var preTime = System.nanoTime()
+    var endTime = System.nanoTime()
+    logger.debug(s"pandas Dataframe splitChunk Begin... from time ${preTime} ")
+    val rows = this.getShape._1
+//    this.show()
+    (0 until rows by chunkSize).map { start =>
+      val end = math.min(start + chunkSize, rows)
+      val indices = start until end
+      val newDf = this.filterRows(indices).resetIndex
+//      newDf.resetColumns
+      endTime = System.nanoTime()
+      val duration = (endTime - preTime) / 1e9
+      preTime = endTime
+      logger.debug(s"pandas Dataframe num ${start/chunkSize} splitChunk from start ${start} to end ${end} ... from time ${endTime} , cost time $duration s")
+      newDf
+    }
+  }
+
+  // 假设存在 filterRows 方法用于根据索引过滤行
+  def filterRows(rowIndices: Seq[Int]): DataFrame[V] = {
+    val newData = rowIndices.map(rowIndex => {
+      (0 until this.data.size()).map(colIndex => this.data.get(colIndex, rowIndex))
+    }).transpose.map(_.toBuffer).toList
+
+    val newIndex = rowIndices.map(i => this.index.get(i.asInstanceOf[AnyRef])).toBuffer
+    new DataFrame[V](
+      new Index(newIndex.asInstanceOf[Iterable[AnyRef]], newIndex.size),
+      this.columns,
+      new BlockManager[V](newData),
+      this.groups
+    )
+  }
+
+  def toNumpyNDArrayLazy[V1: ClassTag](fillValue: Double = Double.NaN, triggerBatch: Int = 500000, ignoreCastType: Boolean = true): NDArray[V1] = {
+    // 获取 DataFrame 的行数和列数
+    val rows = this.getShape._1
+    val cols = this.getShape._2
+    val tag = DType.fromClassTag(implicitly[ClassTag[V1]])
+    val splitNum = rows / triggerBatch
+    val dealDfSeq = this.splitChunk(triggerBatch)
+    // 创建一个空的 NDArray
+    val ndArray: NDArray[V1] = TorchNumpy.empty[V1](Array(rows, cols), tag) //, tag)
+    // 将 DataFrame 的行转换为 LazyList
+    //    val lazyRows: LazyList[Seq[V]] = LazyList.from(this.iterrows)
+    logger.debug(s"try to convert pandas to Numpy NDArray, rows: ${rows}, cols: ${cols}")
+    var preTime = System.nanoTime()
+//    dealDfSeq.head.show()
+    dealDfSeq.map(df =>{
+      val transposeDf = df.transpose
+      val castDf = if (ignoreCastType) transposeDf.resetColumns else transposeDf.resetColumns.cast(implicitly[ClassTag[V1]].runtimeClass)
+      val dataRows: Array[Array[V1]] = castDf.toArray(classOf[Array[Array[V1]]])
+      var endTime = System.nanoTime() // 记录结束时间
+      var duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+      preTime = endTime
+      logger.debug(s"pandas Dataframe toNumpyNDArray resetColumns reset dtype and toModelMatrixDataFrame, 1. cost time $duration s")
+      val flattenedData = dataRows.flatMap {
+        case arr: Array[V1] => arr
+        //      case seq: Seq[V1] => seq.toArray
+        case single: V1 => Array(single)
+        case ss: Array[AnyRef] =>
+          logger.error(s"maybe error case Array[AnyRef]: ${dataRows.getClass.getName} , please check")
+          dataRows.flatten.map { ele =>
+            //          logger.error(s"ele ${ele.getClass.getName} $ele")
+            ele.toString.asInstanceOf[V1]
+          }.toArray
+        case other =>
+          logger.error(s"maybe error case se ${data.getClass.getName}, please check")
+          try other.asInstanceOf[Array[V1]]
+          catch {
+            case _: ClassCastException =>
+              logger.error(s"Failed to cast $other to Array[V1]. Using empty array.")
+              Array.empty[V1]
+          }
+        //        data.flatten.map(ele => {
+        //          println(s"ele ${ele.getClass.getName} ${ele}")
+        //          ele.toString.asInstanceOf[V1]
+        //        }).toArray
+      }.map(elem =>
+        try elem.asInstanceOf[V1] // .toString.toDouble
+        catch {
+          case _: NumberFormatException =>
+            logger.error(s"Failed to convert $elem to Double. Using fillValue $fillValue instead.")
+            fillValue.asInstanceOf[V1]
+        },
+      ).grouped(cols.toInt)
+      flattenedData.zipWithIndex.foreach { case (row, rowIndex) => {
+        if ((rowIndex + 1) % triggerBatch == 0) {
+          val endTime = System.nanoTime() // 记录结束时间
+          val duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+          preTime = endTime
+          logger.debug(s"pandas Dataframe toNumpyNDArrayLazy iterrows cost time $duration s, triggerBatch: ${triggerBatch}, rowIndex: ${rowIndex}")
+        }
+        ndArray.lazyAppend(row.toSeq, triggerBatch, rowIndex)
+        if ((rowIndex + 1) % triggerBatch == 0) {
+          val endTime = System.nanoTime() // 记录结束时间
+          val duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+          preTime = endTime
+          logger.debug(s"pandas Dataframe toNumpyNDArrayLazy, ndArray length ${ndArray.getArray.length} cost time $duration s, triggerBatch: ${triggerBatch}, rowIndex: ${rowIndex}")
+        }
+      }
+      }
+      null
+
+    })
+
+//    val dataRows: Array[Array[V1]] = castDf.toArray(classOf[Array[Array[V1]]])
+//    //    val castDf = this.resetColumns.cast(implicitly[ClassTag[Double]].runtimeClass)
+//    //    val dataFrame = castDf.toModelMatrixDataFrame
+//    var endTime = System.nanoTime() // 记录结束时间
+//    var duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+//    preTime = endTime
+//    logger.debug(s"pandas Dataframe toNumpyNDArray resetColumns reset dtype and toModelMatrixDataFrame, 1. cost time $duration s")
+//    val flattenedData = dataRows.flatMap {
+//      case arr: Array[V1] => arr
+//      //      case seq: Seq[V1] => seq.toArray
+//      case single: V1 => Array(single)
+//      case ss: Array[AnyRef] =>
+//        logger.error(s"maybe error case Array[AnyRef]: ${dataRows.getClass.getName} , please check")
+//        dataRows.flatten.map { ele =>
+//          //          logger.error(s"ele ${ele.getClass.getName} $ele")
+//          ele.toString.asInstanceOf[V1]
+//        }.toArray
+//      case other =>
+//        logger.error(s"maybe error case se ${data.getClass.getName}, please check")
+//        try other.asInstanceOf[Array[V1]]
+//        catch {
+//          case _: ClassCastException =>
+//            logger.error(s"Failed to cast $other to Array[V1]. Using empty array.")
+//            Array.empty[V1]
+//        }
+//      //        data.flatten.map(ele => {
+//      //          println(s"ele ${ele.getClass.getName} ${ele}")
+//      //          ele.toString.asInstanceOf[V1]
+//      //        }).toArray
+//    }.map(elem =>
+//      try elem.asInstanceOf[V1] // .toString.toDouble
+//      catch {
+//        case _: NumberFormatException =>
+//          logger.error(s"Failed to convert $elem to Double. Using fillValue $fillValue instead.")
+//          fillValue.asInstanceOf[V1]
+//      },
+//    ).grouped(cols.toInt)
+//    flattenedData.zipWithIndex.foreach { case (row, rowIndex) => {
+//      if ((rowIndex + 1) % triggerBatch == 0) {
+//        val endTime = System.nanoTime() // 记录结束时间
+//        val duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+//        preTime = endTime
+//        logger.debug(s"pandas Dataframe toNumpyNDArrayLazy iterrows cost time $duration s, triggerBatch: ${triggerBatch}, rowIndex: ${rowIndex}")
+//      }
+//      ndArray.lazyAppend(row.toSeq, triggerBatch, rowIndex)
+//      if ((rowIndex + 1) % triggerBatch == 0) {
+//        val endTime = System.nanoTime() // 记录结束时间
+//        val duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+//        preTime = endTime
+//        logger.debug(s"pandas Dataframe toNumpyNDArrayLazy, ndArray length ${ndArray.getArray.length} cost time $duration s, triggerBatch: ${triggerBatch}, rowIndex: ${rowIndex}")
+//      }
+//    }
+//    }
+
+
+
+//    this.itercols.zipWithIndex.foreach { case (row, rowIndex) =>
+//      //      println(s"rowIndex: ${rowIndex} row: ${row}")
+//      val processedRow = row.map { elem =>
+//        try {
+//          elem match {
+//            case i: Int if implicitly[ClassTag[V1]] == ClassTag.Int => i.asInstanceOf[V1]
+//            case l: Long if implicitly[ClassTag[V1]] == ClassTag.Long => l.asInstanceOf[V1]
+//            case f: Float if implicitly[ClassTag[V1]] == ClassTag.Float => f.asInstanceOf[V1]
+//            case d: Double if implicitly[ClassTag[V1]] == ClassTag.Double => d.asInstanceOf[V1]
+//            case _ => fillValue.asInstanceOf[V1]
+//          }
+//        }
+//        catch {
+//          case _: NumberFormatException =>
+//            fillValue.asInstanceOf[V1]
+//        }
+//      }
+//      if ((rowIndex + 1) % triggerBatch == 0) {
+//        val endTime = System.nanoTime() // 记录结束时间
+//        val duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+//        preTime = endTime
+//        logger.debug(s"pandas Dataframe toNumpyNDArrayLazy iterrows cost time $duration s, triggerBatch: ${triggerBatch}, rowIndex: ${rowIndex}")
+//      }
+//      ndArray.lazyAppend(processedRow.asInstanceOf[Seq[V1]], triggerBatch, rowIndex)
+//      if ((rowIndex + 1) % triggerBatch == 0) {
+//        val endTime = System.nanoTime() // 记录结束时间
+//        val duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+//        preTime = endTime
+//        logger.debug(s"pandas Dataframe toNumpyNDArrayLazy,b cost time $duration s, triggerBatch: ${triggerBatch}, rowIndex: ${rowIndex}")
+//      }
+//    }
+
+    println(s"ndArray shape: ${ndArray.getShape.mkString(",")} try to reshape rows: ${rows}, cols: ${cols}")
+    ndArray.reshape(rows, cols)
+  }
+
+  def toNumpyNDArrayLazy2[V1: ClassTag](fillValue: Double = Double.NaN, triggerBatch: Int = 500000): NDArray[V1] = {
+    // 获取 DataFrame 的行数和列数
+    val rows = this.getShape._1
+    val cols = this.getShape._2
+    val tag = DType.fromClassTag(implicitly[ClassTag[V1]])
+    // 创建一个空的 NDArray
+    val ndArray: NDArray[V1] = TorchNumpy.empty[V1](Array(rows, cols), tag)//, tag)
+    // 将 DataFrame 的行转换为 LazyList
+//    val lazyRows: LazyList[Seq[V]] = LazyList.from(this.iterrows)
+
+    logger.debug(s"try to convert pandas to Numpy NDArray, rows: ${rows}, cols: ${cols}")
+    var preTime = System.nanoTime()
+
+    this.itercols.zipWithIndex.foreach { case (row, rowIndex) =>
+//      println(s"rowIndex: ${rowIndex} row: ${row}")
+      val processedRow = row.map { elem =>
+        try{
+          elem match {
+            case i: Int if implicitly[ClassTag[V1]] == ClassTag.Int => i.asInstanceOf[V1]
+            case l: Long if implicitly[ClassTag[V1]] == ClassTag.Long => l.asInstanceOf[V1]
+            case f: Float if implicitly[ClassTag[V1]] == ClassTag.Float => f.asInstanceOf[V1]
+            case d: Double if implicitly[ClassTag[V1]] == ClassTag.Double => d.asInstanceOf[V1]
+            case _ => fillValue.asInstanceOf[V1]
+          }
+        }
+        catch {
+          case _: NumberFormatException =>
+            fillValue.asInstanceOf[V1]
+        }
+      }
+      if ((rowIndex + 1) % triggerBatch == 0) {
+        val endTime = System.nanoTime() // 记录结束时间
+        val duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+        preTime = endTime
+        logger.debug(s"pandas Dataframe toNumpyNDArrayLazy iterrows cost time $duration s, triggerBatch: ${triggerBatch}, rowIndex: ${rowIndex}")
+      }
+      ndArray.lazyAppend(processedRow.asInstanceOf[Seq[V1]], triggerBatch, rowIndex)
+      if ((rowIndex+1) % triggerBatch == 0) {
+        val endTime = System.nanoTime() // 记录结束时间
+        val duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
+        preTime = endTime
+        logger.debug(s"pandas Dataframe toNumpyNDArrayLazy,b cost time $duration s, triggerBatch: ${triggerBatch}, rowIndex: ${rowIndex}")
+      }
+    }
+
+    ndArray.reshape(rows, cols)
+  }
+
   def toNumpyNDArray[V1: ClassTag](fillValue: Double = Double.NaN, ignoreCastType: Boolean = true): NDArray[V1] = {
     var preTime = System.nanoTime()
     logger.debug(s"pandas Dataframe toNumpyNDArray Try to convert pandas to Numpy NDArray, Maybe need more time,please waiting. Beging.. from time $preTime s")
@@ -980,9 +1320,9 @@ class DataFrame[V](
   //      for (j <- 0 until cols) {
   //      }}  //[Double,V]
 
-  def values[T: ClassTag](isAllBoolean: Boolean = false, ignoreCastType: Boolean = true): NDArray[T] = {
+  def values[T: ClassTag](isAllBoolean: Boolean = false, ignoreCastType: Boolean = true, isLazy: Boolean = false, triggerBatch: Int = 500000): NDArray[T] = {
 
-    val numDf = if isAllBoolean then this else this.numeric
+    var numDf = if isAllBoolean then this else this.numeric
     if (numDf.getColumns.size == 0) {
       logger.error(s"DataFrame must contain at least one numeric column.")
       throw new IllegalArgumentException(
@@ -991,17 +1331,29 @@ class DataFrame[V](
     } else {
       val mainStartTime = System.nanoTime() // 记录结束时间
 //      duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
-      val transposeDf = numDf.transpose
+//      var transposeDf = numDf.transpose
+      val numpyShape = numDf.getShape
+//      numDf = null
+      System.gc()
       var endTime = System.nanoTime() // 记录结束时间
       var duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
       var preTime = endTime
       logger.debug(s"pandas Dataframe transpose, 1. cost time $duration s")
-      val numpyDf = transposeDf.toNumpyNDArray[T](ignoreCastType = ignoreCastType)
+//      transposeDf.show()
+//      val dfSeq = numDf.splitChunk(1000)
+//      dfSeq.head.show()
+//      println(s"dfSeq size ${dfSeq.size}")
+      var numpyDf = if !isLazy then numDf.transpose.toNumpyNDArray[T](ignoreCastType = ignoreCastType) else numDf.toNumpyNDArrayLazy[T](triggerBatch = triggerBatch) //ignoreCastType = ignoreCastType, isLazy = false)
       endTime = System.nanoTime() // 记录结束时间
       duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
       preTime = endTime
+//      transposeDf = null
+      numDf = null
+      System.gc()
       logger.debug(s"pandas Dataframe convert to Numpy NDArray no reshape,2. cost time $duration s")
-      val finalDf = numpyDf.reshape(numDf.getShape._1, numDf.getShape._2)
+      val finalDf = numpyDf.reshape(numpyShape._1, numpyShape._2)
+      numpyDf = null
+      System.gc()
       endTime = System.nanoTime() // 记录结束时间
       duration = (endTime - preTime) / 1e9 // 将纳秒转换为秒
       preTime = endTime
@@ -1074,15 +1426,15 @@ class DataFrame[V](
     * @return
     *   过滤后的 DataFrame
     */
-  private def filterRows(indices: Seq[Int]): DataFrame[V] = {
-    val newData = indices.map(i => this.data.getRow(i)).toList
-    new DataFrame[V](
-      index = new Index(indices.map(index.names(_)), indices.size),
-      columns = columns,
-      data = new BlockManager[V](newData.transpose),
-      groups = groups,
-    )
-  }
+//  private def filterRows(indices: Seq[Int]): DataFrame[V] = {
+//    val newData = indices.map(i => this.data.getRow(i)).toList
+//    new DataFrame[V](
+//      index = new Index(indices.map(index.names(_)), indices.size),
+//      columns = columns,
+//      data = new BlockManager[V](newData.transpose),
+//      groups = groups,
+//    )
+//  }
 
   def writeParquet(dataFrame: DataFrame[AnyRef], outPath: String): Unit =
     PolarsCompat.writeParquet(dataFrame, outPath)

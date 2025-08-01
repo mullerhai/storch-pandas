@@ -15,7 +15,7 @@ object PickleCompat {
   
   def readPickleForCaseClassSeq[T: ClassTag](picklePath: String): Seq[T] = {
     val unpickler = new Unpickler()
-    val df = unpickler.load(picklePath)
+    val df: MulitNumpyNdArray = unpickler.load(picklePath).asInstanceOf[MulitNumpyNdArray]
     df.asInstanceOf[ListBuffer[T]].toSeq
   }
 

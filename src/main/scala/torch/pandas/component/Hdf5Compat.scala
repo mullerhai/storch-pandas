@@ -52,7 +52,7 @@ object Hdf5Compat {
       finally if (hdfFile != null) hdfFile.close()
     }
 
-  def readHdf5(hdf5Path: String, datasetName: String): Array[AnyRef] = {
+  def readHdf5(hdf5Path: String, datasetName: String, needConvert: Boolean = false): Array[AnyRef] = {
     val hdfFile = new HdfFile(Paths.get(hdf5Path))
     try {
       val dataset = hdfFile.getDatasetByPath(datasetName)

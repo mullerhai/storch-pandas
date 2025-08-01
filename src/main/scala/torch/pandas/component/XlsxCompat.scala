@@ -25,7 +25,7 @@ object XlsxCompat {
       case _ => null
     }
 
-  def readXlsx(xlsxFilePath: String): DataFrame[AnyRef] = {
+  def readXlsx(xlsxFilePath: String, needConvert: Boolean = false): DataFrame[AnyRef] = {
     val path = new FileInputStream(xlsxFilePath)
     //    import org.apache.poi.ss.
     val wb = new XSSFWorkbook(path)
@@ -57,7 +57,6 @@ object XlsxCompat {
     val df = new DataFrame[AnyRef](columns.map(_.toString).toArray*)
 
     for (row <- data) df.append(row)
-    df.convert
-
+    if needConvert then df.convert else df
   }
 }

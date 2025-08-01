@@ -19,14 +19,17 @@ object RatingCSVCompat {
 
   def main(args: Array[String]): Unit = {
     val header = Seq("userId", "movieId", "rating", "timestamp")
+    val path = "D:\\data\\git\\testNumpy\\src\\main\\resources\\ml-1m\\ratings.dat"
+    val path2 = "D:\\data\\git\\testNumpy\\src\\main\\resources\\ml-1m\\movies.dat"
+    val path3 = "D:\\data\\git\\testNumpy\\src\\main\\resources\\ml-1m\\users.dat"
     val df = RatingCSVCompat.readCSV(
-      "D:\\data\\git\\testNumpy\\src\\main\\resources\\ml-1m\\ratings.dat",
-      header,
-    )
-    df.heads(1000).show()
+      path,
+      Some(header),limit =500
+    )(using customCSVFormat)
+    df.heads(100).show()
   }
 
-  private given customCSVFormat: CSVFormat = new CSVFormat {
+  given customCSVFormat: CSVFormat = new CSVFormat {
     override val delimiter: Char = ':'
 
     override val quoteChar: Char = '"'
@@ -47,22 +50,24 @@ object RatingCSVCompat {
 
   def readCSV(
       csvPath: String,
-      header: Seq[String] = null,
+      header: Option[Seq[String]] = None,
       limit: Int = -1,
-  ): DataFrame[AnyRef] = {
+      needConvert: Boolean = false
+  )(using customCSVFormat: CSVFormat = RatingCSVCompat.customCSVFormat): DataFrame[AnyRef] = {
     // 使用自定义的 CSVFormat 打开 CSV 文件
     val csv = CSVReader.open(csvPath)(using customCSVFormat)
 
 //    val csvHeader = csv.readNext()
-    val count = 150 // csvSeq.size
-    val df = new DataFrame[AnyRef](header*)
+//    val count = 150 // csvSeq.size
+   
     val iter = csv.iterator
+    val df = if header.isDefined then new DataFrame[AnyRef](header.get *) else new DataFrame[AnyRef](iter.next() *)
     var index = 0
     val mainStartTime = System.nanoTime()
     var preTmpEndTime = System.nanoTime()
     breakable {
       while (iter.hasNext)
-        if (index < limit || limit == -1) {
+        if (index < limit || limit <= -1) {
           val line = iter.next()
           val processedLine = line.sliding(2, 2).collect {
             case Seq(value, _) => value
@@ -71,7 +76,7 @@ object RatingCSVCompat {
 
           df.append(index.toString, processedLine)
           index += 1
-          if (index % 1000 == 0) {
+          if (index % 10000 == 0) {
             val endTime = System.nanoTime() // 记录结束时间
             val duration = (endTime - mainStartTime) / 1e9 // 将纳秒转换为秒
             val zduration = (endTime - preTmpEndTime) / 1e9
@@ -83,7 +88,7 @@ object RatingCSVCompat {
           break
         }
     }
-    df
+    if needConvert then df.convert else df
   }
 }
 

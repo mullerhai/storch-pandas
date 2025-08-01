@@ -2,6 +2,7 @@ package testcase.suite.io
 
 import org.scalatest.funsuite.AnyFunSuite
 import torch.pandas.DataFrame
+import torch.pandas.component.Person
 
 import java.sql.{Connection, DriverManager}
 
@@ -13,7 +14,8 @@ class ReadSuite extends AnyFunSuite {
   val csvPath = "D:\\data\\git\\testNumpy\\src\\main\\resources\\avazu\\test.csv"
 
   val csvPath2 = "D:\\code\\data\\llm\\手撕LLM速成班-试听课-小冬瓜AIGC-20231211\\data\\avazu\\test.csv"
-  val picklePath = "D:\\data\\git\\testNumpy\\src\\main\\resources\\npy_dir\\random_float32_array.npy"
+  val picklePath = "D:\\data\\git\\storch-pandas-old-use\\src\\test\\resources\\newOnlyNumpyArray.pkl"
+//  val picklePath = ""
   val xlsfile = "src/main/resources/sample_new2.xls"
   val xlsxfile = "src/main/resources/sample_new.xlsx"
 
@@ -24,7 +26,7 @@ class ReadSuite extends AnyFunSuite {
   val jsonPath = "src/test/resources/random_data.json"
   val jsonAmazonPath = "D:\\data\\git\\testNumpy\\src\\main\\resources\\amzon\\reviews_Electronics_5.json"
 
-  val hdf5path ="src/test/resources/norm.hdf5"
+  val hdf5path ="D:\\data\\git\\testNumpy\\src\\main\\resources\\example.h5" //"src/test/resources/norm.hdf5"
   val sqlExec = "select name, age ,tall, weight from person limit 500"
   
   test("read sql file generate dataframe") {
@@ -35,12 +37,15 @@ class ReadSuite extends AnyFunSuite {
     println(df.getShape)
     println(df.getColumns.mkString(","))
   }
-//  test("read hdf5 file generate dataframe") {
-//    val df = DataFrame.readHDF5(hdf5path)
+  //readHdf5(hdf5Path: String, datasetName: String, needConvert: Boolean = false)
+  test("read hdf5 file generate dataframe") {
+    val dsname = "data_6"
+    val df = DataFrame.readHdf5(hdf5path,datasetName = dsname)
+    println(df.head.asInstanceOf[Array[Array[Float]]].head.mkString(","))
 //    df.show()
 //    println(df.getShape)
 //    println(df.getColumns.mkString(","))
-//  }
+  }
   test("read parquet file by polars generate dataframe") {
     val df = DataFrame.readParquet(parquetPath)
     println(df.getShape)
@@ -90,7 +95,7 @@ class ReadSuite extends AnyFunSuite {
   }
 
   test("read csv file generate dataframe") {
-    val df = DataFrame.readCSV(csvPath, 500)
+    val df = DataFrame.readCSV(csvPath, 500, needConvert =  true)
     df.show()
     println(df.getShape)
     println(df.getColumns.mkString(","))
@@ -132,13 +137,29 @@ class ReadSuite extends AnyFunSuite {
   }
 
   test("read pickle file generate dataframe") {
-    val df = DataFrame.readPickle[Float](picklePath)
+    val df = DataFrame.readPickle[Person](picklePath)
+//    df.numpyNdarray.toNDArray[Float]().printArray()
     df.show()
     println(df.getShape)
     println(df.getColumns.mkString(","))
   }
 
+  test("read pickle file generate dataframe numpy") {
+    val df = DataFrame.readPickleForNumpy(picklePath)
+    df.numpyNdarray.toNDArray[Float]().printArray()
+    //    df.show()
+    //    println(df.getShape)
+    //    println(df.getColumns.mkString(","))
+  }
+
   test("read parquet file generate dataframe") {
+    val df = DataFrame.readParquet(picklePath)
+    df.show()
+    println(df.getShape)
+    println(df.getColumns.mkString(","))
+  }
+
+  test("read parquet file generate dataframe by normal") {
     val df = DataFrame.readParquet(picklePath)
     df.show()
     println(df.getShape)
